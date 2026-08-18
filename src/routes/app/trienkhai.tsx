@@ -1,0 +1,140 @@
+import { createFileRoute } from "@tanstack/react-router";
+import { CheckCircle2, FileDown, ShieldAlert, Smartphone } from "lucide-react";
+import { HtmlFilesCard } from "@/components/html-files-card";
+import { InstallApp } from "@/components/install-app";
+
+export const Route = createFileRoute("/app/trienkhai")({ component: TrienKhai });
+
+const WEB_STEPS = [
+  {
+    n: "1",
+    title: "Máy chủ bệnh viện (LAN) hoặc Cloudflare Tunnel",
+    body: "Chạy web này trên máy nội bộ trạm / phòng kỹ thuật. Cloudflare Tunnel (cloudflared) đưa HTTPS ra ngoài mà không mở port tường lửa. Không ghi vào sheet lưu lượng — dashboard lưu lượng vẫn đọc CSV công khai như cũ.",
+  },
+  {
+    n: "2",
+    title: "Đăng nhập Google + khai nhân sự",
+    body: "Ca trực / nhà thầu / quản lý đăng nhập Google. Email chưa có trong Quản trị bị chặn phía máy chủ. Quản lý thêm email và chọn vai trò: ca trực ghi liều; nhà thầu chốt nhập; quản lý sửa số đã khóa, khôi phục bản sao lưu.",
+  },
+  {
+    n: "3",
+    title: "Gắn tab hóa chất (ChemBridge)",
+    body: "Trên sheet CSDL (không phải sheet lưu lượng): dán Code-ChemBridge.gs, chạy setupChemTabs, triển khai web app Thực thi bằng Tôi. Đặt CHEM_SHEET_WEBHOOK_URL và CHEM_SHEET_SECRET trùng secret trên máy chủ. Tab mới: CHEM_NHAP, CHEM_LIEU, CHEM_TON, AUDIT_SO.",
+  },
+  {
+    n: "4",
+    title: "Cài PWA máy trực",
+    body: "Chrome trên máy ca trực → Cài đặt app / Thêm vào màn hình chính → ghim taskbar. Bật Giữ màn hình ở Theo dõi. App chạy cả khi máy ngủ mạng LAN nội bộ.",
+  },
+] as const;
+
+const LEGACY = [
+  {
+    n: "A",
+    title: "Sheet CSDL",
+    body: "UMC - Cơ sở dữ liệu vận hành Trạm XLNT. Sao ID giữa /d/ và /edit.",
+  },
+  {
+    n: "B",
+    title: "Backend Apps Script (tùy chọn song song)",
+    body: "Dán Code-Backend.gs + Shell v3 nếu vẫn cần bản HtmlService cũ. Không thay ChemBridge.",
+  },
+  {
+    n: "C",
+    title: "Dashboard lưu lượng",
+    body: "Sheet lưu lượng tab DASHBOARD_DATA — chỉ đọc. Code-Dashboard.gs. Không cho ChemBridge ID của sheet này.",
+  },
+] as const;
+
+function TrienKhai() {
+  return (
+    <div className="mx-auto max-w-3xl space-y-6">
+      <section className="rounded-xl border border-accent/30 bg-surface p-4">
+        <h1 className="text-sm font-semibold">Web vận hành + Google Sheet hóa chất riêng</h1>
+        <p className="mt-1 text-sm text-muted">
+          Tồn, liều đã châm và chốt nhập ghi máy chủ, rồi đẩy bốn tab trên spreadsheet CSDL. Sheet lưu lượng 3 đồng hồ
+          vẫn chỉ đọc, poll 10 phút — không bị ghi đè.
+        </p>
+      </section>
+
+      <InstallApp />
+
+      <section className="space-y-3">
+        <h2 className="flex items-center gap-2 text-sm font-semibold">
+          <Smartphone className="size-4 text-accent" strokeWidth={1.75} />
+          Bốn bước cho máy trực
+        </h2>
+        <ol className="space-y-2">
+          {WEB_STEPS.map((s) => (
+            <li key={s.n} className="rounded-xl border border-border bg-surface p-3">
+              <div className="flex gap-3">
+                <span className="flex size-7 shrink-0 items-center justify-center rounded-full bg-accent text-xs font-bold text-accent-fg">
+                  {s.n}
+                </span>
+                <div className="min-w-0">
+                  <div className="text-sm font-semibold">{s.title}</div>
+                  <p className="mt-1 text-sm text-muted">{s.body}</p>
+                </div>
+              </div>
+            </li>
+          ))}
+        </ol>
+      </section>
+
+      <HtmlFilesCard />
+
+      <section className="space-y-3">
+        <h2 className="flex items-center gap-2 text-sm font-semibold">
+          <FileDown className="size-4 text-accent" strokeWidth={1.75} />
+          Bản Apps Script cũ (nếu còn dùng)
+        </h2>
+        <ol className="space-y-2">
+          {LEGACY.map((s) => (
+            <li key={s.n} className="rounded-xl border border-border bg-surface p-3">
+              <div className="flex gap-3">
+                <span className="flex size-7 shrink-0 items-center justify-center rounded-full bg-surface2 text-xs font-bold">
+                  {s.n}
+                </span>
+                <div className="min-w-0">
+                  <div className="text-sm font-semibold">{s.title}</div>
+                  <p className="mt-1 text-sm text-muted">{s.body}</p>
+                </div>
+              </div>
+            </li>
+          ))}
+        </ol>
+      </section>
+
+      <section className="rounded-xl border border-border bg-surface p-4">
+        <h2 className="mb-2 flex items-center gap-2 text-sm font-semibold">
+          <CheckCircle2 className="size-4 text-ok" strokeWidth={1.75} />
+          Cloudflare / nội bộ
+        </h2>
+        <ul className="space-y-1 text-sm text-muted">
+          <li>
+            <strong className="text-fg">Nội bộ:</strong> máy Windows/Linux trong mạng bệnh viện chạy web; ca trực mở
+            địa chỉ LAN.
+          </li>
+          <li>
+            <strong className="text-fg">Cloudflare Tunnel:</strong> cloudflared trên cùng máy, hostname bệnh viện trỏ
+            vào tunnel — không publish sheet lưu lượng thành chỗ ghi.
+          </li>
+          <li>
+            <strong className="text-fg">ChemBridge:</strong> Thực thi bằng Tôi · quyền Bất kỳ ai (máy chủ POST secret).
+            Sai ID sheet lưu lượng thì script từ chối.
+          </li>
+        </ul>
+      </section>
+
+      <section className="rounded-xl border border-warn/40 bg-warn/10 p-4">
+        <div className="flex items-start gap-2">
+          <ShieldAlert className="mt-0.5 size-4 shrink-0 text-warn" strokeWidth={1.75} />
+          <p className="text-sm text-muted">
+            Xem trước trên web này đã ghi số vào máy chủ kèm nhật ký. Muốn thấy trên Google Sheet: dán ChemBridge và
+            khai webhook. Chưa gắn webhook thì số vẫn còn trên máy chủ và bản sao lưu.
+          </p>
+        </div>
+      </section>
+    </div>
+  );
+}

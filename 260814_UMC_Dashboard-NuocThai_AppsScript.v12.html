@@ -1,0 +1,807 @@
+<!DOCTYPE html>
+<html lang="vi" data-theme="dark">
+<head>
+<base target="_top">
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="theme-color" content="#0C1116">
+<title>UMC · Giám sát lưu lượng nước thải</title>
+<link rel="manifest" href='data:application/manifest+json,{"name":"UMC Nước thải","short_name":"Nước thải","start_url":".","display":"standalone","background_color":"%230f172a","theme_color":"%230c4a6e","icons":[{"src":"data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 192 192%22%3E%3Crect width=%22192%22 height=%22192%22 rx=%2236%22 fill=%22%230c4a6e%22/%3E%3Ctext x=%2296%22 y=%22120%22 font-size=%2290%22 text-anchor=%22middle%22 fill=%22white%22%3E%F0%9F%92%A7%3C/text%3E%3C/svg%3E","sizes":"192x192","type":"image/svg+xml"}]}'>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+/* UMC XLNT Design System — 2026-08-14
+   Một họ chữ, một màu thương hiệu, semantic chỉ cho cảnh báo thật.
+   Token trên :root (tối) và [data-theme="light"].
+*/
+:root {
+  --u-font: "IBM Plex Sans", "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --u-font-mono: "IBM Plex Mono", "SF Mono", ui-monospace, Menlo, Consolas, monospace;
+
+  --u-bg: #0C1116;
+  --u-surface: #151C23;
+  --u-raised: #1C252E;
+  --u-overlay: rgba(12, 17, 22, 0.78);
+
+  --u-txt: #E6EDF2;
+  --u-txt-secondary: #A8B4C0;
+  --u-txt-tertiary: #7C8894;
+
+  --u-border: #2A343E;
+  --u-border-strong: #3A4652;
+
+  --u-brand: #3BA89A;
+  --u-brand-fg: #06211E;
+  --u-brand-soft: #14332F;
+
+  --u-ok: #6ECF9A;
+  --u-ok-fg: #B8E6D4;
+  --u-ok-bg: #163328;
+  --u-ok-bd: #2A5A46;
+
+  --u-warn: #E0B44A;
+  --u-warn-fg: #F3DEAA;
+  --u-warn-bg: #3A2E12;
+  --u-warn-bd: #6A5420;
+
+  --u-bad: #E07A7A;
+  --u-bad-fg: #F3C4C4;
+  --u-bad-bg: #3A1818;
+  --u-bad-bd: #6A2A2A;
+
+  --u-info: #7EB0D0;
+  --u-info-fg: #C4D8E8;
+  --u-info-bg: #1A2C38;
+  --u-info-bd: #2A4A5A;
+
+  --u-fs-xs: 0.6875rem;
+  --u-fs-sm: 0.75rem;
+  --u-fs-md: 0.875rem;
+  --u-fs-lg: 1rem;
+  --u-fs-xl: 1.25rem;
+  --u-fs-2xl: 1.625rem;
+
+  --u-space-1: 4px;
+  --u-space-2: 8px;
+  --u-space-3: 12px;
+  --u-space-4: 16px;
+  --u-space-5: 20px;
+  --u-space-6: 24px;
+  --u-space-8: 32px;
+  --u-space-10: 40px;
+
+  --u-r-xs: 4px;
+  --u-r-sm: 8px;
+  --u-r-md: 12px;
+  --u-r-lg: 16px;
+
+  --u-shadow-1: 0 1px 0 rgba(255,255,255,0.04);
+  --u-shadow-2: 0 8px 24px rgba(0,0,0,0.28);
+  --u-shadow-3: 0 16px 40px rgba(0,0,0,0.36);
+
+  --u-z-base: 1;
+  --u-z-sticky: 20;
+  --u-z-dropdown: 40;
+  --u-z-overlay: 60;
+  --u-z-modal: 80;
+  --u-z-toast: 100;
+
+  --u-motion: 150ms;
+  --u-ease: cubic-bezier(0.22, 1, 0.36, 1);
+
+  --u-sidebar: 248px;
+  --u-touch: 44px;
+
+  /* Alias token cũ — JS / class cũ vẫn đọc được */
+  --bg: var(--u-bg);
+  --surface: var(--u-surface);
+  --surface2: var(--u-raised);
+  --line: var(--u-border);
+  --txt: var(--u-txt);
+  --muted: var(--u-txt-secondary);
+  --dim: var(--u-txt-tertiary);
+  --accent: var(--u-brand);
+  --accent2: var(--u-info);
+  --ok: var(--u-ok);
+  --warn: var(--u-warn);
+  --bad: var(--u-bad);
+  --purple: var(--u-info);
+  --r: var(--u-r-md);
+  --sidebar-w: var(--u-sidebar);
+}
+
+[data-theme="light"] {
+  --u-bg: #F4F0E8;
+  --u-surface: #FFFCF6;
+  --u-raised: #FFFFFF;
+  --u-overlay: rgba(26, 34, 41, 0.45);
+
+  --u-txt: #1A2229;
+  --u-txt-secondary: #4A5560;
+  --u-txt-tertiary: #5C6770;
+
+  --u-border: #D8D2C8;
+  --u-border-strong: #C4BDB2;
+
+  --u-brand: #0E6B62;
+  --u-brand-fg: #FFFFFF;
+  --u-brand-soft: #D5EBE8;
+
+  --u-ok: #146043;
+  --u-ok-fg: #14553A;
+  --u-ok-bg: #D7EFE4;
+  --u-ok-bd: #9BCFB8;
+
+  --u-warn: #7A5608;
+  --u-warn-fg: #6B4A00;
+  --u-warn-bg: #F3E6C4;
+  --u-warn-bd: #D4BC78;
+
+  --u-bad: #9B2C2C;
+  --u-bad-fg: #8B2222;
+  --u-bad-bg: #F5DCDC;
+  --u-bad-bd: #D4A0A0;
+
+  --u-info: #1E5470;
+  --u-info-fg: #1A4A62;
+  --u-info-bg: #D6E6EF;
+  --u-info-bd: #9BB8C8;
+
+  --u-shadow-1: 0 1px 0 rgba(26,34,41,0.04);
+  --u-shadow-2: 0 8px 24px rgba(26,34,41,0.08);
+  --u-shadow-3: 0 16px 40px rgba(26,34,41,0.12);
+}
+*,*::before,*::after{box-sizing:border-box}
+html,body{height:100%;margin:0}
+html{background:var(--u-bg);color:var(--u-txt)}
+body{
+  font-family:var(--u-font);
+  background:var(--u-bg);
+  color:var(--u-txt);
+  line-height:1.5;
+  -webkit-font-smoothing:antialiased;
+  font-feature-settings:"tnum" 1;
+}
+button,input,select,textarea{font-family:inherit;color:inherit}
+button:not(:disabled),[role="button"]:not(:disabled){cursor:pointer}
+:focus-visible{outline:2px solid var(--u-brand);outline-offset:2px}
+.u-num{font-variant-numeric:tabular-nums}
+
+/* Icons */
+.u-ico{width:1.1em;height:1.1em;display:inline-block;vertical-align:-0.15em;flex-shrink:0}
+.u-ico-lg{width:22px;height:22px}
+
+/* Buttons */
+.u-btn{
+  display:inline-flex;align-items:center;justify-content:center;gap:8px;
+  min-height:var(--u-touch);padding:0 14px;
+  border:1px solid var(--u-border);border-radius:var(--u-r-sm);
+  background:var(--u-surface);color:var(--u-txt);
+  font-size:var(--u-fs-md);font-weight:600;line-height:1;
+  transition:background var(--u-motion) var(--u-ease),border-color var(--u-motion) var(--u-ease);
+}
+.u-btn:hover{background:var(--u-raised);border-color:var(--u-border-strong)}
+.u-btn:disabled{opacity:.45;cursor:not-allowed}
+.u-btn--primary{background:var(--u-brand);color:var(--u-brand-fg);border-color:transparent}
+.u-btn--primary:hover{filter:brightness(1.06)}
+.u-btn--danger{background:var(--u-bad-bg);color:var(--u-bad-fg);border-color:var(--u-bad-bd)}
+.u-btn--sm{min-height:36px;padding:0 10px;font-size:var(--u-fs-sm)}
+.u-btn--lg{min-height:48px;padding:0 18px}
+.u-btn--ghost{background:transparent}
+
+/* Fields */
+.u-input,.u-select,.u-textarea,.u-date,
+input[type=text],input[type=email],input[type=number],input[type=date],input[type=password],select,textarea{
+  width:100%;min-height:var(--u-touch);padding:8px 12px;
+  background:var(--u-raised);border:1px solid var(--u-border);border-radius:var(--u-r-sm);
+  color:var(--u-txt);font-size:var(--u-fs-md);
+}
+textarea{min-height:80px;resize:vertical}
+.u-label{display:block;font-size:var(--u-fs-sm);color:var(--u-txt-secondary);margin:0 0 6px;font-weight:600}
+
+/* Card / KPI */
+.u-card{background:var(--u-surface);border:1px solid var(--u-border);border-radius:var(--u-r-md);padding:16px}
+.u-stat{
+  background:var(--u-surface);border:1px solid var(--u-border);border-radius:var(--u-r-md);
+  padding:14px 16px;position:relative;
+}
+.u-stat::before{content:"";position:absolute;left:0;top:10px;bottom:10px;width:3px;border-radius:0 2px 2px 0;background:var(--u-border-strong)}
+.u-stat.ok::before{background:var(--u-ok)}
+.u-stat.warn::before{background:var(--u-warn)}
+.u-stat.bad::before{background:var(--u-bad)}
+.u-stat.info::before,.u-stat.cap::before{background:var(--u-info)}
+.u-stat .lbl{font-size:var(--u-fs-xs);color:var(--u-txt-secondary);text-transform:uppercase;letter-spacing:.04em;font-weight:600}
+.u-stat .val{font-size:var(--u-fs-2xl);font-weight:700;letter-spacing:-.02em;margin-top:6px;font-variant-numeric:tabular-nums}
+.u-stat .val span{font-size:var(--u-fs-sm);color:var(--u-txt-secondary);font-weight:500}
+.u-stat .sub{font-size:var(--u-fs-sm);color:var(--u-txt-secondary);margin-top:4px}
+.u-stat .mm{font-size:var(--u-fs-xs);color:var(--u-txt-tertiary);margin-top:8px;display:flex;gap:10px;flex-wrap:wrap;border-top:1px solid var(--u-border);padding-top:8px}
+.u-stat .mm b{color:var(--u-txt);font-weight:600}
+
+/* Badge / chip */
+.u-badge{display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:999px;font-size:var(--u-fs-xs);font-weight:700;border:1px solid transparent}
+.u-badge--ok{background:var(--u-ok-bg);color:var(--u-ok-fg);border-color:var(--u-ok-bd)}
+.u-badge--warn{background:var(--u-warn-bg);color:var(--u-warn-fg);border-color:var(--u-warn-bd)}
+.u-badge--bad{background:var(--u-bad-bg);color:var(--u-bad-fg);border-color:var(--u-bad-bd)}
+.u-badge--info{background:var(--u-info-bg);color:var(--u-info-fg);border-color:var(--u-info-bd)}
+.u-chip{
+  display:inline-flex;align-items:center;justify-content:center;
+  min-height:36px;padding:0 14px;border-radius:999px;
+  background:var(--u-surface);border:1px solid var(--u-border);color:var(--u-txt-secondary);
+  font-size:var(--u-fs-sm);font-weight:600;cursor:pointer;
+}
+.u-chip.on,.chip.on{background:var(--u-brand);color:var(--u-brand-fg);border-color:transparent}
+.chip{display:inline-flex;align-items:center;justify-content:center;min-height:36px;padding:0 14px;border-radius:999px;background:var(--u-surface);border:1px solid var(--u-border);color:var(--u-txt-secondary);font-size:var(--u-fs-sm);font-weight:600;cursor:pointer}
+
+/* Table */
+.u-table-wrap{overflow-x:auto}
+.u-table,table.data-table{width:100%;border-collapse:collapse;font-size:var(--u-fs-sm);font-variant-numeric:tabular-nums}
+.u-table th,.u-table td,table.data-table th,table.data-table td{padding:8px 10px;text-align:right;border-bottom:1px solid var(--u-border)}
+.u-table th,table.data-table th{color:var(--u-txt-secondary);font-weight:600;font-size:var(--u-fs-xs);text-transform:uppercase;letter-spacing:.03em;background:var(--u-surface)}
+.u-table th:first-child,.u-table td:first-child,table.data-table th:first-child,table.data-table td:first-child{text-align:left}
+.u-table tr:hover td,table.data-table tr:hover td{background:var(--u-raised)}
+tr.row-bad td{background:var(--u-bad-bg)}
+tr.row-warn td{background:var(--u-warn-bg)}
+
+/* Modal / toast / skeleton / empty / tabs */
+.u-modal,.modal{position:fixed;inset:0;background:var(--u-overlay);display:none;align-items:center;justify-content:center;z-index:var(--u-z-modal);padding:16px}
+.u-modal.show,.modal.show,.modal[style*="flex"]{display:flex}
+.u-modal__panel{background:var(--u-surface);border:1px solid var(--u-border);border-radius:var(--u-r-lg);width:100%;max-width:640px;max-height:90vh;overflow:auto;box-shadow:var(--u-shadow-3)}
+.u-toast,.toast{display:flex;gap:10px;background:var(--u-raised);border:1px solid var(--u-border);border-radius:var(--u-r-md);padding:12px 14px;min-width:260px;box-shadow:var(--u-shadow-2)}
+.toast.success{border-color:var(--u-ok-bd);background:var(--u-ok-bg)}
+.toast.error{border-color:var(--u-bad-bd);background:var(--u-bad-bg)}
+.toast.warning{border-color:var(--u-warn-bd);background:var(--u-warn-bg)}
+.u-skel{height:12px;border-radius:4px;background:var(--u-raised);position:relative;overflow:hidden}
+.u-empty{text-align:center;padding:48px 20px;color:var(--u-txt-secondary)}
+.u-tabs{display:flex;gap:4px;flex-wrap:wrap;border-bottom:1px solid var(--u-border);margin-bottom:12px}
+.u-tab{min-height:40px;padding:0 12px;background:none;border:none;border-bottom:2px solid transparent;color:var(--u-txt-secondary);font-weight:600;font-size:var(--u-fs-sm)}
+.u-tab[aria-selected="true"],.u-tab.on{color:var(--u-txt);border-bottom-color:var(--u-brand)}
+.u-nav-item,.nav-item{display:flex;align-items:center;gap:10px;min-height:var(--u-touch);padding:0 11px;border-radius:var(--u-r-sm);color:var(--u-txt-secondary);font-size:var(--u-fs-md)}
+.u-nav-item:hover,.nav-item:hover{background:var(--u-raised);color:var(--u-txt)}
+.u-nav-item.active,.nav-item.active{background:var(--u-brand-soft);color:var(--u-brand);position:relative}
+.u-crumb{font-size:var(--u-fs-xs);text-transform:uppercase;letter-spacing:.06em;color:var(--u-txt-tertiary);font-weight:600}
+
+@media (prefers-reduced-motion:reduce){
+  *,*::before,*::after{animation-duration:.01ms!important;transition-duration:.01ms!important}
+}
+.wrap{max-width:1280px;margin:0 auto;padding:16px 16px 48px}
+.dash-head{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;margin-bottom:16px}
+.dash-title{display:flex;align-items:center;gap:12px}
+.dash-mark{width:40px;height:40px;border-radius:10px;background:var(--u-brand);color:var(--u-brand-fg);display:grid;place-items:center}
+.dash-title h1{font-size:var(--u-fs-xl);font-weight:700;letter-spacing:-.02em;margin:0}
+.dash-title p{font-size:var(--u-fs-sm);color:var(--u-txt-secondary);margin:2px 0 0}
+.dash-actions{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.live-dot{width:8px;height:8px;border-radius:50%;background:var(--u-ok);display:inline-block}
+.export-bar{background:var(--u-surface);border:1px solid var(--u-border);border-radius:var(--u-r-md);padding:12px 14px;margin-bottom:14px;display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.export-bar .lbl{font-size:var(--u-fs-sm);color:var(--u-txt-secondary);font-weight:600}
+.export-bar input[type=date]{width:auto;min-width:140px}
+.filter{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px}
+.todaybar{border-radius:var(--u-r-md);padding:14px 16px;margin-bottom:14px;display:flex;align-items:center;gap:14px;flex-wrap:wrap;border:1px solid var(--u-border)}
+.todaybar.ok{background:var(--u-ok-bg);border-color:var(--u-ok-bd)}
+.todaybar.warn{background:var(--u-warn-bg);border-color:var(--u-warn-bd)}
+.todaybar.bad{background:var(--u-bad-bg);border-color:var(--u-bad-bd)}
+.todaybar .tb-day{font-size:var(--u-fs-sm);color:var(--u-txt-secondary)}
+.todaybar .tb-day b{color:var(--u-txt);font-size:var(--u-fs-lg);display:block;font-variant-numeric:tabular-nums}
+.todaybar .tb-msg{font-size:var(--u-fs-md);font-weight:600;flex:1;min-width:180px}
+.todaybar.ok .tb-msg{color:var(--u-ok-fg)}
+.todaybar.warn .tb-msg{color:var(--u-warn-fg)}
+.todaybar.bad .tb-msg{color:var(--u-bad-fg)}
+.kpi-primary{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:12px}
+.kpi-sec{margin-bottom:16px}
+.kpi-sec h2{display:flex;align-items:center;gap:8px;margin:0 0 8px;font-size:var(--u-fs-xs);font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--u-txt-secondary)}
+.kpis-5{display:grid;grid-template-columns:repeat(5,1fr);gap:10px}
+.kpis-3{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+.u-stat .kstat{margin-top:8px;padding-top:8px;border-top:1px solid var(--u-border);font-size:var(--u-fs-xs);color:var(--u-txt-tertiary);display:flex;flex-wrap:wrap;gap:8px}
+.u-stat .kstat b{color:var(--u-txt);font-variant-numeric:tabular-nums}
+.kpi-more{margin-bottom:16px;border:1px solid var(--u-border);border-radius:var(--u-r-md);background:var(--u-surface)}
+.kpi-more>summary{min-height:44px;padding:10px 14px;cursor:pointer;font-size:var(--u-fs-sm);font-weight:700;color:var(--u-txt-secondary);list-style:none;display:flex;align-items:center;justify-content:space-between}
+.kpi-more>summary::-webkit-details-marker{display:none}
+.kpi-more .kpis{padding:0 12px 12px;display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:10px}
+.statbar{display:flex;gap:16px;flex-wrap:wrap;margin-bottom:12px;padding:10px 12px;background:var(--u-raised);border-radius:var(--u-r-sm)}
+.statbar .s{font-size:var(--u-fs-sm);color:var(--u-txt-secondary)}
+.statbar .s b{color:var(--u-txt);font-size:var(--u-fs-md);font-weight:700;display:block;font-variant-numeric:tabular-nums}
+.chart-box{min-height:240px}
+canvas{width:100%!important;max-height:280px}
+.day-cards{display:none;flex-direction:column;gap:10px}
+.day-card{background:var(--u-surface);border:1px solid var(--u-border);border-radius:var(--u-r-md);padding:12px}
+.day-card h3{font-size:var(--u-fs-md);margin:0 0 8px}
+.day-grid{display:grid;grid-template-columns:1fr 1fr;gap:6px 12px}
+.day-grid .k{font-size:var(--u-fs-xs);color:var(--u-txt-secondary)}
+.day-grid .v{font-size:var(--u-fs-sm);font-weight:600;font-variant-numeric:tabular-nums}
+.loading{text-align:center;padding:60px 20px;color:var(--u-txt-secondary)}
+.spin{width:34px;height:34px;border:3px solid var(--u-border);border-top-color:var(--u-brand);border-radius:50%;animation:rot 1s linear infinite;margin:0 auto 14px}
+@keyframes rot{to{transform:rotate(360deg)}}
+.err{background:var(--u-bad-bg);border:1px solid var(--u-bad-bd);border-radius:var(--u-r-md);padding:16px;color:var(--u-bad-fg);font-size:var(--u-fs-md)}
+.updated{font-size:var(--u-fs-xs);color:var(--u-txt-tertiary)}
+.cnt{font-size:var(--u-fs-sm);color:var(--u-txt-secondary);margin-left:auto}
+.tbl-desk{display:block}
+@media (min-width:761px) and (max-width:1199px){
+  .kpis-5{grid-template-columns:repeat(2,1fr)}
+}
+@media (min-width:761px){
+  .kpi-more{border:none;background:transparent}
+  .kpi-more>summary{display:none}
+  .kpi-more{display:block}
+  .kpi-more .kpis{padding:0}
+}
+@media (max-width:760px){
+  .wrap{padding:12px 12px 40px}
+  .kpi-primary{grid-template-columns:1fr 1fr}
+  .kpis-5,.kpis-3{grid-template-columns:1fr}
+  .tbl-desk{display:none}
+  .day-cards{display:flex}
+  canvas{max-height:220px}
+}
+
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="dash-head">
+    <div class="dash-title">
+      <span class="dash-mark" aria-hidden="true">
+        <svg class="u-ico-lg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0z"/></svg>
+      </span>
+      <div>
+        <h1>Giám sát lưu lượng nước thải</h1>
+        <p>Bệnh viện Đại học Y Dược TP.HCM</p>
+      </div>
+    </div>
+    <div class="dash-actions">
+      <span class="u-btn u-btn--sm u-btn--ghost"><span class="live-dot"></span>Đồng bộ Sheet</span>
+      <button class="u-btn u-btn--sm" type="button" id="themeToggleBtn" onclick="toggleTheme()" title="Chuyển chế độ sáng hoặc tối">
+        <span id="themeToggleIcon">Sáng</span>
+        <span id="themeToggleText">nền</span>
+      </button>
+      <button class="u-btn u-btn--sm" type="button" id="reload">Tải lại</button>
+      <span class="updated" id="updated"></span>
+    </div>
+  </header>
+  <div class="export-bar">
+    <span class="lbl">Trích xuất</span>
+    <label class="u-label" for="dFrom">Từ</label>
+    <input type="date" id="dFrom">
+    <label class="u-label" for="dTo">đến</label>
+    <input type="date" id="dTo">
+    <button class="u-btn u-btn--primary u-btn--sm" type="button" id="btnExport">Xuất Excel (.xlsx)</button>
+    <button class="u-btn u-btn--sm" type="button" id="btnExportWd">Xuất T2–T6</button>
+    <span class="cnt" id="exportCnt"></span>
+  </div>
+  <div class="filter" id="filter">
+    <span class="chip on" data-r="all">Tất cả</span>
+    <span class="chip" data-r="30">30 ngày</span>
+    <span class="chip" data-r="60">60 ngày</span>
+    <span class="chip" data-r="weekday">T2–T6</span>
+    <span class="chip" data-r="alert">Chỉ cảnh báo</span>
+  </div>
+  <div id="app">
+    <div class="loading"><div class="spin"></div>Đang tải dữ liệu từ Google Sheet…</div>
+  </div>
+</div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script>
+
+let NT_MAX_WEEK=810, NT_MAX_WEEKEND=650, CHENH_MAX=140, HE600_MAX=600, HE220_MIN=200, HE220_MAX=220, THATTHOAT_MAX=5;
+function updateDynamicThresholds(thresholds) {
+  if (!thresholds || !Array.isArray(thresholds)) return;
+  thresholds.forEach(function(t) {
+    if (!t.Kich_hoat) return;
+    var val1 = parseFloat(t.Gia_tri_1);
+    var val2 = t.Gia_tri_2 !== '' ? parseFloat(t.Gia_tri_2) : null;
+    
+    if (t.Ma_nguong === 'NT_NGAY_THUONG' && !isNaN(val1)) {
+      NT_MAX_WEEK = val1;
+    } else if (t.Ma_nguong === 'NT_CUOI_TUAN' && !isNaN(val1)) {
+      NT_MAX_WEEKEND = val1;
+    } else if (t.Ma_nguong === 'HE600_MAX' && !isNaN(val1)) {
+      HE600_MAX = val1;
+    } else if (t.Ma_nguong === 'HE220_KHOANG') {
+      if (!isNaN(val1)) HE220_MIN = val1;
+      if (val2 !== null && !isNaN(val2)) HE220_MAX = val2;
+    } else if (t.Ma_nguong === 'CHENH_CAP_THAI' && !isNaN(val1)) {
+      CHENH_MAX = val1;
+    } else if (t.Ma_nguong === 'THAT_THOAT_B') {
+      var possibleMax = Math.max(Math.abs(val1), Math.abs(val2 || 0));
+      if (!isNaN(possibleMax) && possibleMax > 0) {
+        THATTHOAT_MAX = possibleMax;
+      }
+    }
+  });
+}
+
+let charts={};
+let ALL_RECS=[];
+
+let curChartTab='trend';
+function token(name){
+  return getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+}
+function chartTheme(){
+  return {
+    grid: token('--u-border') || '#2A343E',
+    tick: token('--u-txt-secondary') || '#A8B4C0',
+    legend: token('--u-txt') || '#E6EDF2',
+    nt: token('--u-brand') || '#3BA89A',
+    cap: token('--u-info') || '#7EB0D0',
+    ok: token('--u-ok') || '#6ECF9A',
+    warn: token('--u-warn') || '#E0B44A',
+    bad: token('--u-bad') || '#E07A7A',
+    night: token('--u-txt-tertiary') || '#7C8894'
+  };
+}
+function toggleTheme(){
+  var cur=document.documentElement.getAttribute('data-theme')||'dark';
+  var next=cur==='dark'?'light':'dark';
+  document.documentElement.setAttribute('data-theme', next);
+  try{ localStorage.setItem('umc_theme', next); }catch(e){}
+  updateThemeUI(next);
+  if(ALL_RECS.length) renderView();
+}
+function updateThemeUI(theme){
+  var iconEl=document.getElementById('themeToggleIcon');
+  var textEl=document.getElementById('themeToggleText');
+  var meta=document.querySelector('meta[name="theme-color"]');
+  if(theme==='light'){
+    if(iconEl) iconEl.textContent='Tối';
+    if(textEl) textEl.textContent='nền';
+    if(meta) meta.setAttribute('content','#F4F0E8');
+  } else {
+    if(iconEl) iconEl.textContent='Sáng';
+    if(textEl) textEl.textContent='nền';
+    if(meta) meta.setAttribute('content','#0C1116');
+  }
+}
+(function(){
+  var saved='dark';
+  try{ saved=localStorage.getItem('umc_theme')||'dark'; }catch(e){}
+  document.documentElement.setAttribute('data-theme', saved);
+  document.addEventListener('DOMContentLoaded', function(){ updateThemeUI(saved); });
+})();
+function pos(v){ return (v==null||v<0)?null:v; }
+
+
+function num(v){ if(v==null||v==='') return null; const n=parseFloat(String(v).replace(/[^\d.-]/g,'')); return isNaN(n)?null:n; }
+function fmt(n){ return n==null?'–':n.toLocaleString('vi-VN',{maximumFractionDigits:0}); }
+
+function load(silent){
+  if(!silent){
+    document.getElementById('app').innerHTML='<div class="loading"><div class="spin"></div>Đang tải dữ liệu…</div>';
+  }
+  if(typeof google==='undefined'||!google.script||!google.script.run){
+    if(!silent) showErr('File này cần chạy qua Apps Script HtmlService để gọi getData() từ Sheet.');
+    return;
+  }
+  google.script.run
+    .withSuccessHandler(function(resp){
+      if(resp.error){ if(!silent) showErr(resp.error); return; }
+      if(resp.thresholds) {
+        updateDynamicThresholds(resp.thresholds);
+      }
+      render(resp.rows);
+      var el=document.getElementById('updated');
+      if(el) el.textContent='Tự cập nhật mỗi 10 phút · '+resp.updated;
+    })
+    .withFailureHandler(function(err){ if(!silent) showErr(err.message||err); })
+    .getData();
+}
+function showErr(m){ document.getElementById('app').innerHTML='<div class="err">Lỗi tải dữ liệu: '+m+'</div>'; }
+
+function render(rows){
+  const data=rows.slice(1).filter(r=>r[0]&&String(r[0]).trim()!=='');
+  const recs=data.map(r=>({
+    ngay:r[0], nt7:num(r[1]), nt17:num(r[2]), s600:num(r[3]), s220:num(r[4]),
+    capA:num(r[5]), capB:num(r[6]), llnt:num(r[7]), lldem:num(r[8]),
+    ll600:num(r[9]), ll220:num(r[10]), llcap:num(r[11]), chenh:num(r[12]),
+    cb:String(r[13]||'').trim(), thu:String(r[14]||'').trim(),
+    ntday:num(r[15]), capday:num(r[16]), he600day:num(r[17]), he220day:num(r[18]),
+    llvaoB:num(r[21]), llcapB:num(r[22]), thatthoatB:num(String(r[23]||'').replace('⚠','')),
+    llcapA:num(r[24]),
+    iso:String(r[25]||'').trim()
+  }));
+  // Nước cấp ban đêm = Cấp 24h − Cấp ban ngày (chỉ tính khi đủ cả 2)
+  recs.forEach(function(d){ d.capdem=(d.llcap!=null&&d.capday!=null)?d.llcap-d.capday:null; });
+  ALL_RECS=recs;
+  setupExportDates(recs);
+  renderView();
+}
+
+let curRange='all';
+function getFilteredRecs(){
+  var recs=ALL_RECS.slice();
+  if(curRange==='30') return recs.slice(-30);
+  if(curRange==='60') return recs.slice(-60);
+  if(curRange==='weekday') return recs.filter(function(d){return d.thu&&d.thu!=='T7'&&d.thu!=='CN';});
+  if(curRange==='alert') return recs.filter(function(d){return d.cb&&!d.cb.includes('OK')&&d.cb.indexOf('Chưa đủ')<0&&d.cb!=='';});
+  return recs;
+}
+function avg(arr,f){ var v=arr.map(function(x){return x[f]}).filter(function(n){return n!=null}); if(!v.length) return null; return Math.round(v.reduce(function(a,b){return a+b},0)/v.length); }
+function maxOf(arr,f){ var v=arr.map(function(x){return x[f]}).filter(function(n){return n!=null}); if(!v.length) return null; return Math.max.apply(null,v); }
+function minOf(arr,f){ var v=arr.map(function(x){return x[f]}).filter(function(n){return n!=null}); if(!v.length) return null; return Math.min.apply(null,v); }
+
+function kpiClass(v,max){ if(v==null) return ''; if(v<0) return 'bad'; if(v>max) return 'bad'; if(v>max*0.92) return 'warn'; return 'ok'; }
+function statCard(cls,lbl,val,hint,recs,field){
+  var mx=field?maxOf(recs,field):null, mn=field?minOf(recs,field):null, tb=field?avg(recs,field):null;
+  var foot='';
+  if(field) foot='<div class="kstat">Max <b>'+fmt(mx)+'</b> Min <b>'+fmt(mn)+'</b> TB <b>'+fmt(tb)+'</b></div>';
+  return '<div class="u-stat '+cls+'"><div class="lbl">'+lbl+'</div><div class="val">'+fmt(val)+' <span>m³</span></div>'+(hint?'<div class="sub">'+hint+'</div>':'')+foot+'</div>';
+}
+function renderView(){
+  const recs=getFilteredRecs();
+  const valid=recs.filter(d=>d.llnt!=null);
+  const last=ALL_RECS.filter(d=>d.llnt!=null).slice(-1)[0]||{};
+  const alerts=recs.filter(d=>d.cb&&!d.cb.includes('OK')&&d.cb.indexOf('Chưa đủ')<0&&d.cb!=='');
+  const tbCls=(!last.cb||last.cb.includes('OK'))?'ok':(last.cb.includes('🟠')?'warn':'bad');
+  const tbMark=tbCls==='ok'?'OK':(tbCls==='warn'?'Cảnh báo':'Sự cố');
+  const tbMsg=(!last.cb||last.cb.includes('OK'))?'Ngày gần nhất bình thường, không có cảnh báo':last.cb;
+  const ntLimit=(last.thu==='T7'||last.thu==='CN')?NT_MAX_WEEKEND:NT_MAX_WEEK;
+  const todaybar=`
+    <div class="todaybar ${tbCls}">
+      <span class="u-badge u-badge--${tbCls}">${tbMark}</span>
+      <div class="tb-day">Ngày gần nhất<b>${last.ngay||''} · ${last.thu||''}</b></div>
+      <div class="tb-msg">${tbMsg}</div>
+      <div class="tb-day">NThải<b>${fmt(last.llnt)} m³</b></div>
+    </div>`;
+  const kpiNt=`<section class="kpi-sec"><h2>Nước thải</h2><div class="kpis-5">`+
+    statCard(kpiClass(last.llnt,ntLimit),'Nước thải 24h',last.llnt,(last.ngay||'')+' · '+(last.thu||'')+' · ngày: '+fmt(last.ntday)+' m³',valid,'llnt')+
+    statCard('','NThải ban ngày · 7h30–17h30',last.ntday,last.ngay||'',valid,'ntday')+
+    statCard('','NThải ban đêm · 17h30–7h30',last.lldem,(last.ngay||'')+' · ngày + đêm = 24h',valid,'lldem')+
+    statCard(last.ll600>=HE600_MAX?'bad':'ok','Hệ 600',last.ll600,'Ngưỡng dưới '+HE600_MAX+' · ngày: '+fmt(last.he600day)+' m³',valid,'ll600')+
+    statCard((last.ll220<HE220_MIN||last.ll220>HE220_MAX)?'warn':'ok','Hệ 220',last.ll220,'Khoảng '+HE220_MIN+'–'+HE220_MAX+' · ngày: '+fmt(last.he220day)+' m³',valid,'ll220')+
+    `</div></section>`;
+  const kpiCap=`<section class="kpi-sec"><h2>Nước cấp</h2><div class="kpis-5">`+
+    statCard('info','Nước cấp A+B',last.llcap,'A: '+fmt(last.llcapA)+' · B: '+fmt(last.llcapB),valid,'llcap')+
+    statCard('','Nước cấp A (24h)',last.llcapA,last.ngay||'',valid,'llcapA')+
+    statCard('','Nước cấp B (24h)',last.llcapB,'Thất thoát Khu B: '+fmt(last.thatthoatB)+' m³',valid,'llcapB')+
+    statCard('','Nước cấp ban ngày · 7h30–17h30',last.capday,last.ngay||'',valid,'capday')+
+    statCard('','Nước cấp ban đêm · 17h30–7h30',last.capdem,(last.ngay||'')+' · = Cấp 24h − Cấp ban ngày',valid,'capdem')+
+    `</div></section>`;
+  const kpiBal=`<section class="kpi-sec"><h2>Chênh lệch và cảnh báo</h2><div class="kpis-3">`+
+    statCard(last.chenh!=null&&Math.abs(last.chenh)>CHENH_MAX?'bad':'info','Chênh lệch cấp − thải',last.chenh,'Ngưỡng dưới '+CHENH_MAX+' m³ (nghi tràn / rò rỉ)',valid,'chenh')+
+    statCard(last.thatthoatB!=null&&Math.abs(last.thatthoatB)>THATTHOAT_MAX?'bad':'ok','Thất thoát Khu B (24h)',last.thatthoatB,'Ngưỡng ±'+THATTHOAT_MAX+' m³ (Cấp B − Đầu vào B)',valid,'thatthoatB')+
+    '<div class="u-stat '+(alerts.length?'bad':'ok')+'"><div class="lbl">Ngày cảnh báo</div><div class="val">'+alerts.length+' <span>/ '+valid.length+'</span></div><div class="sub">Theo bộ lọc · thất thoát B max '+fmt(maxOf(valid,'thatthoatB'))+'</div></div>'+
+    `</div></section>`;
+  const s24=`<div class="statbar"><div class="s">TB nước thải<b>${fmt(avg(valid,'llnt'))} m³</b></div><div class="s">TB nước cấp<b>${fmt(avg(valid,'llcap'))} m³</b></div><div class="s">TB chênh lệch<b>${fmt(avg(valid,'chenh'))} m³</b></div><div class="s">Max 24h<b>${fmt(maxOf(valid,'llnt'))} m³</b></div></div>`;
+  const dd=valid.filter(d=>d.ntday!=null);
+  const tbNgay=avg(dd,'ntday'), tbDem=avg(dd,'lldem');
+  const tyle=(tbNgay!=null&&avg(dd,'llnt'))?Math.round(tbNgay/avg(dd,'llnt')*100):null;
+  const sDay=`<div class="statbar"><div class="s">TB ban ngày<b>${fmt(tbNgay)} m³</b></div><div class="s">TB ban đêm<b>${fmt(tbDem)} m³</b></div><div class="s">Tỷ lệ ngày / 24h<b>${tyle!=null?tyle+'%':'–'}</b></div></div>`;
+  const tabs=[['trend','Xu hướng'],['balance','Cân bằng nước'],['daynight','Ngày–đêm'],['week','Theo tuần'],['khub','Khu A–B']];
+  const tabBar=tabs.map(function(t){ return '<button type="button" class="u-tab'+(curChartTab===t[0]?' on':'')+'" data-tab="'+t[0]+'">'+t[1]+'</button>'; }).join('');
+  const panels={
+    trend:'<div class="u-card"><h2 class="u-label">Xu hướng 30 ngày gần nhất</h2><div class="chart-box"><canvas id="cTrend"></canvas></div></div>',
+    balance:'<div class="u-card"><h2 class="u-label">So sánh 24h: nước cấp và nước thải</h2>'+s24+'<div class="chart-box"><canvas id="cCompare"></canvas></div></div><div class="u-card" style="margin-top:12px"><h2 class="u-label">Hệ 220 và Hệ 600</h2><div class="chart-box"><canvas id="cHe"></canvas></div></div>',
+    daynight:'<div class="u-card"><h2 class="u-label">Ban ngày 7h30–17h30</h2>'+sDay+'<div class="chart-box"><canvas id="cDayStack"></canvas></div></div><div class="u-card" style="margin-top:12px"><h2 class="u-label">Ban ngày và ban đêm</h2><div class="chart-box"><canvas id="cDayNight"></canvas></div></div>',
+    week:'<div class="u-card"><h2 class="u-label">Nước thải · 4 tuần</h2><div class="chart-box"><canvas id="cWk4nt"></canvas></div></div><div class="u-card" style="margin-top:12px"><h2 class="u-label">Nước cấp · 4 tuần</h2><div class="chart-box"><canvas id="cWk4cap"></canvas></div></div><div class="u-card" style="margin-top:12px"><h2 class="u-label">So sánh theo tuần</h2><div class="chart-box"><canvas id="cByWeek"></canvas></div></div>',
+    khub:'<div class="u-card"><h2 class="u-label">Nước cấp Khu A / Khu B và thất thoát</h2><div class="chart-box"><canvas id="cKhuAB"></canvas></div></div>'
+  };
+  document.getElementById('app').innerHTML=`
+    ${todaybar}
+    ${kpiNt}
+    ${kpiCap}
+    ${kpiBal}
+    <div class="u-tabs" role="tablist">${tabBar}</div>
+    <div id="chartPanel">${panels[curChartTab]||panels.trend}</div>
+    <div class="u-card" style="margin-top:16px">
+      <h2 class="u-label">Bảng cảnh báo và dữ liệu · ${alerts.length} cảnh báo</h2>
+      <div class="tbl-desk tbl-wrap"><table class="u-table">
+        <thead><tr><th>Ngày</th><th>Thứ</th><th>NThải 24h</th><th>NThải ngày</th><th>Đêm</th><th>Hệ 600 24h</th><th>Hệ 600 ngày</th><th>Hệ 220 24h</th><th>Hệ 220 ngày</th><th>Cấp 24h</th><th>Cấp ngày</th><th>Thất thoát B</th><th>Chênh</th><th>Tình trạng</th></tr></thead>
+        <tbody>${tableRows(recs)}</tbody>
+      </table></div>
+      <div class="day-cards">${cardRows(recs)}</div>
+    </div>`;
+  document.querySelectorAll('.u-tab').forEach(function(btn){
+    btn.addEventListener('click', function(){ curChartTab=btn.getAttribute('data-tab'); renderView(); });
+  });
+  drawCharts(valid);
+}
+
+function badge(cb){ if(!cb||cb.includes('OK')) return '<span class="u-badge u-badge--ok">OK</span>'; if(cb.includes('🟠')) return '<span class="u-badge u-badge--warn">'+cb+'</span>'; return '<span class="u-badge u-badge--bad">'+cb+'</span>'; }
+function rowClass(cb){ if(!cb||cb.includes('OK')) return ''; if(cb.includes('🟠')) return 'row-warn'; return 'row-bad'; }
+function tableRows(recs){
+  return recs.slice().reverse().map(d=>`
+    <tr class="${rowClass(d.cb)}">
+      <td>${d.ngay}</td><td>${d.thu}</td><td>${fmt(d.llnt)}</td><td>${fmt(d.ntday)}</td><td>${fmt(d.lldem)}</td>
+      <td>${fmt(d.ll600)}</td><td>${fmt(d.he600day)}</td><td>${fmt(d.ll220)}</td><td>${fmt(d.he220day)}</td><td>${fmt(d.llcap)}</td><td>${fmt(d.capday)}</td><td>${fmt(d.thatthoatB)}</td><td>${fmt(d.chenh)}</td>
+      <td>${badge(d.cb)}</td>
+    </tr>`).join('');
+}
+
+function cardRows(recs){
+  return recs.slice().reverse().map(function(d){
+    return '<article class="day-card"><h3>'+d.ngay+' · '+(d.thu||'')+' '+badge(d.cb)+'</h3><div class="day-grid">'+
+      '<div><div class="k">NThải 24h</div><div class="v">'+fmt(d.llnt)+' m³</div></div>'+
+      '<div><div class="k">NThải ngày</div><div class="v">'+fmt(d.ntday)+'</div></div>'+
+      '<div><div class="k">Đêm</div><div class="v">'+fmt(d.lldem)+'</div></div>'+
+      '<div><div class="k">Hệ 600</div><div class="v">'+fmt(d.ll600)+'</div></div>'+
+      '<div><div class="k">Hệ 220</div><div class="v">'+fmt(d.ll220)+'</div></div>'+
+      '<div><div class="k">Cấp 24h</div><div class="v">'+fmt(d.llcap)+'</div></div>'+
+      '<div><div class="k">Chênh</div><div class="v">'+fmt(d.chenh)+'</div></div>'+
+      '<div><div class="k">Thất thoát B</div><div class="v">'+fmt(d.thatthoatB)+'</div></div>'+
+    '</div></article>';
+  }).join('');
+}
+function drawCharts(d){
+  if(!document.getElementById('cTrend') && !document.getElementById('cCompare') && !document.getElementById('cWk4nt') && !document.getElementById('cKhuAB') && !document.getElementById('cDayStack')) return;
+
+  Object.values(charts).forEach(c=>c&&c.destroy());
+  var th=chartTheme(); const grid={color:th.grid}, tick={color:th.tick,font:{size:10}};
+  const opt={responsive:true,maintainAspectRatio:false,interaction:{intersect:false,mode:'index'},
+    plugins:{legend:{labels:{color:th.legend,font:{size:11},boxWidth:12}}},
+    scales:{x:{grid,ticks:{...tick,maxTicksLimit:10}},y:{grid,ticks:tick,beginAtZero:true,min:0}}};
+
+  // --- Xu hướng: CỐ ĐỊNH 30 ngày cuối (độc lập bộ lọc) ---
+  var t30=ALL_RECS.filter(x=>x.llnt!=null).slice(-30);
+  var t30lab=t30.map(x=>x.ngay);
+  var el_trend=document.getElementById('cTrend'); if(el_trend) charts.trend=new Chart(el_trend,{type:'line',data:{labels:t30lab,datasets:[
+    {label:'Nước thải 24h',data:t30.map(x=>x.llnt),borderColor:th.nt,backgroundColor:th.nt+'22',fill:true,tension:.3,pointRadius:0,borderWidth:2},
+    {label:'Nước cấp A+B',data:t30.map(x=>x.llcap),borderColor:th.cap,backgroundColor:'transparent',tension:.3,pointRadius:0,borderWidth:2},
+    {label:'Ngưỡng ' + NT_MAX_WEEK,data:t30.map(()=>NT_MAX_WEEK),borderColor:th.bad,borderDash:[6,4],pointRadius:0,borderWidth:1.5},
+    {label:'Cuối tuần ' + NT_MAX_WEEKEND,data:t30.map(()=>NT_MAX_WEEKEND),borderColor:th.warn,borderDash:[4,4],pointRadius:0,borderWidth:1.5}
+  ]},options:opt});
+
+  const labels=d.map(x=>x.ngay);
+
+  // --- So sánh 24h: line, cấp chồng thải (theo bộ lọc) ---
+  var el_compare=document.getElementById('cCompare'); if(el_compare) charts.compare=new Chart(el_compare,{type:'line',data:{labels,datasets:[
+    {label:'Nước cấp A+B',data:d.map(x=>x.llcap),borderColor:th.cap,backgroundColor:th.cap+'14',fill:true,tension:.3,pointRadius:0,borderWidth:2},
+    {label:'Nước thải 24h',data:d.map(x=>x.llnt),borderColor:th.nt,backgroundColor:th.nt+'14',fill:true,tension:.3,pointRadius:0,borderWidth:2}
+  ]},options:opt});
+
+  // --- Ban ngày: cột chồng (ban ngày + đêm) + đường tổng 24h ---
+  var dd=d.filter(x=>x.ntday!=null);
+  var ddlab=dd.map(x=>x.ngay);
+  var stackOpt=Object.assign({},opt,{scales:{x:{grid,ticks:{...tick,maxTicksLimit:12},stacked:true},y:{grid,ticks:tick,beginAtZero:true,stacked:true}}});
+  var el_dayStack=document.getElementById('cDayStack'); if(el_dayStack) charts.dayStack=new Chart(el_dayStack,{type:'bar',data:{labels:ddlab,datasets:[
+    {label:'Ban ngày (7h30-17h30)',data:dd.map(x=>x.ntday),backgroundColor:th.warn,stack:'s'},
+    {label:'Ban đêm (17h30-7h30)',data:dd.map(x=>x.lldem),backgroundColor:th.night,stack:'s'},
+    {type:'line',label:'Tổng 24h',data:dd.map(x=>x.llnt),borderColor:th.nt,pointRadius:0,borderWidth:2,tension:.3}
+  ]},options:stackOpt});
+
+  var el_he=document.getElementById('cHe'); if(el_he) charts.he=new Chart(el_he,{type:'line',data:{labels,datasets:[
+    {label:'Tổng 600+220',data:d.map(x=>(x.ll600!=null&&x.ll220!=null)?x.ll600+x.ll220:null),borderColor:th.nt,pointRadius:0,borderWidth:2.5,tension:.3,spanGaps:true},
+    {label:'Hệ 600',data:d.map(x=>x.ll600),borderColor:th.ok,pointRadius:0,borderWidth:2,tension:.3},
+    {label:'Hệ 220',data:d.map(x=>x.ll220),borderColor:th.warn,pointRadius:0,borderWidth:2,tension:.3},
+    {label:'Hệ 600 max ('+HE600_MAX+')',data:d.map(()=>HE600_MAX),borderColor:th.ok,borderDash:[4,4],pointRadius:0,borderWidth:1},
+    {label:'Hệ 220 max ('+HE220_MAX+')',data:d.map(()=>HE220_MAX),borderColor:th.warn,borderDash:[4,4],pointRadius:0,borderWidth:1}
+  ]},options:opt});
+
+  var el_dayNight=document.getElementById('cDayNight'); if(el_dayNight) charts.dayNight=new Chart(el_dayNight,{type:'line',data:{labels:ddlab,datasets:[
+    {label:'Tổng 24h',data:dd.map(x=>x.llnt),borderColor:th.nt,pointRadius:0,borderWidth:2.5,tension:.3,spanGaps:true},
+    {label:'Ban ngày',data:dd.map(x=>x.ntday),borderColor:th.warn,pointRadius:0,borderWidth:2,tension:.3,spanGaps:true},
+    {label:'Ban đêm',data:dd.map(x=>x.lldem),borderColor:th.night,pointRadius:0,borderWidth:2,tension:.3,spanGaps:true}
+  ]},options:opt});
+
+  function build4Weeks(field){
+    var dowOrder=['T2','T3','T4','T5','T6','T7','CN'];
+    var byWk={};
+    d.forEach(function(x){
+      if(x[field]==null||!x.iso) return;
+      var dt=new Date(x.iso);
+      var onejan=new Date(dt.getFullYear(),0,1);
+      var wk=Math.ceil((((dt-onejan)/86400000)+onejan.getDay()+1)/7);
+      var key=dt.getFullYear()+'-T'+String(wk).padStart(2,'0');
+      if(!byWk[key]) byWk[key]={};
+      byWk[key][x.thu]=x[field];
+    });
+    var keys=Object.keys(byWk).sort().slice(-4);
+    var palette=[th.night,th.cap,th.ok,th.nt];
+    var datasets=keys.map(function(k,i){
+      var isLast=(i===keys.length-1);
+      return {label:'Tuần '+k.split('-T')[1]+(isLast?' (mới nhất)':''),
+        data:dowOrder.map(function(t){ return byWk[k][t]!=null?byWk[k][t]:null; }),
+        borderColor:palette[i],backgroundColor:'transparent',borderWidth:isLast?3:1.5,pointRadius:isLast?4:2,tension:.3,spanGaps:true};
+    });
+    return {labels:dowOrder, datasets:datasets};
+  }
+  var el_wk4nt=document.getElementById('cWk4nt'); if(el_wk4nt) charts.wk4nt=new Chart(el_wk4nt,{type:'line',data:build4Weeks('llnt'),options:opt});
+  var el_wk4cap=document.getElementById('cWk4cap'); if(el_wk4cap) charts.wk4cap=new Chart(el_wk4cap,{type:'line',data:build4Weeks('llcap'),options:opt});
+
+  var weeks={};
+  d.forEach(function(x){
+    if(x.llnt==null||!x.iso) return;
+    var dt=new Date(x.iso);
+    var onejan=new Date(dt.getFullYear(),0,1);
+    var wk=Math.ceil((((dt-onejan)/86400000)+onejan.getDay()+1)/7);
+    var key=dt.getFullYear()+'-T'+String(wk).padStart(2,'0');
+    if(!weeks[key]) weeks[key]={sum:0,cnt:0};
+    weeks[key].sum+=x.llnt; weeks[key].cnt++;
+  });
+  var wkKeys=Object.keys(weeks).sort();
+  var wkAvg=wkKeys.map(function(k){ return Math.round(weeks[k].sum/weeks[k].cnt); });
+  var el_byWeek=document.getElementById('cByWeek'); if(el_byWeek) charts.byWeek=new Chart(el_byWeek,{type:'line',data:{labels:wkKeys,datasets:[
+    {label:'TB nước thải/ngày',data:wkAvg,borderColor:th.cap,backgroundColor:th.cap+'1f',fill:true,tension:.3,pointRadius:3,borderWidth:2}
+  ]},options:Object.assign({},opt,{scales:{x:{grid:grid,ticks:Object.assign({},tick,{maxTicksLimit:12})},y:{grid:grid,ticks:tick,beginAtZero:false}}})});
+
+  var abData=d.filter(x=>x.llcapA!=null||x.llcapB!=null||x.thatthoatB!=null);
+  var abLab=abData.map(x=>x.ngay);
+  var el_khuAB=document.getElementById('cKhuAB'); if(el_khuAB) charts.khuAB=new Chart(el_khuAB,{type:'line',data:{labels:abLab,datasets:[
+    {label:'Tổng A+B',data:abData.map(x=>x.llcap),borderColor:th.ok,backgroundColor:'transparent',pointRadius:0,borderWidth:2.5,tension:.3,spanGaps:true},
+    {label:'LL Cấp A',data:abData.map(x=>x.llcapA),borderColor:th.nt,pointRadius:0,borderWidth:2,tension:.3,spanGaps:true},
+    {label:'LL Cấp B',data:abData.map(x=>x.llcapB),borderColor:th.cap,pointRadius:0,borderWidth:2,tension:.3,spanGaps:true},
+    {label:'Thất thoát Khu B',data:abData.map(x=>x.thatthoatB),borderColor:th.bad,backgroundColor:th.bad+'14',fill:true,pointRadius:0,borderWidth:2,tension:.3,spanGaps:true}
+  ]},options:opt});
+}
+
+function setupExportDates(recs){
+  var withDate=recs.filter(function(x){return x.iso});
+  if(!withDate.length) return;
+  var from=document.getElementById('dFrom'), to=document.getElementById('dTo');
+  if(from && !from.value) from.value=withDate[0].iso;
+  if(to && !to.value) to.value=withDate[withDate.length-1].iso;
+  updateExportCount();
+}
+function getExportRows(weekdayOnly){
+  var from=document.getElementById('dFrom').value, to=document.getElementById('dTo').value;
+  return ALL_RECS.filter(function(x){
+    if(!x.iso) return false;
+    if(from && x.iso<from) return false;
+    if(to && x.iso>to) return false;
+    if(weekdayOnly && (x.thu==='T7'||x.thu==='CN')) return false;
+    return true;
+  });
+}
+function updateExportCount(){
+  var n=getExportRows().length;
+  var el=document.getElementById('exportCnt');
+  if(el) el.textContent=n+' ngày được chọn';
+}
+function exportExcel(weekdayOnly){
+  var rows=getExportRows(weekdayOnly===true);
+  if(!rows.length){ alert('Không có dữ liệu trong khoảng ngày đã chọn.'); return; }
+  // Sheet 1: bảng dữ liệu
+  var header=['Ngày','Thứ','NThải 24h','NThải ngày','Đêm','Hệ 600 24h','Hệ 600 ngày','Hệ 220 24h','Hệ 220 ngày','Cấp 24h','Cấp ngày','Thất thoát B','Chênh lệch','Cảnh báo'];
+  var body=rows.map(function(d){
+    return [d.ngay,d.thu,d.llnt,d.ntday,d.lldem,d.ll600,d.he600day,d.ll220,d.he220day,d.llcap,d.capday,d.thatthoatB,d.chenh,d.cb];
+  });
+  var ws1=XLSX.utils.aoa_to_sheet([header].concat(body));
+  ws1['!cols']=[{wch:12},{wch:6},{wch:10},{wch:10},{wch:8},{wch:10},{wch:10},{wch:10},{wch:10},{wch:9},{wch:9},{wch:11},{wch:10},{wch:40}];
+
+  // Sheet 2: tóm tắt thống kê
+  function stats(field){
+    var vals=rows.map(function(d){return d[field]}).filter(function(v){return v!=null});
+    if(!vals.length) return {tb:'',max:'',min:''};
+    var sum=vals.reduce(function(a,b){return a+b},0);
+    return {tb:Math.round(sum/vals.length),max:Math.max.apply(null,vals),min:Math.min.apply(null,vals)};
+  }
+  var fields=[['Nước thải 24h','llnt'],['Nước thải ban ngày','ntday'],['Nước thải đêm','lldem'],['Hệ 600','ll600'],['Hệ 220','ll220'],['Nước cấp A+B','llcap'],['Chênh lệch Cấp−Thải','chenh']];
+  var alerts=rows.filter(function(d){return d.cb&&!d.cb.includes('OK')&&d.cb.indexOf('Chưa đủ')<0&&d.cb!==''});
+  var sumData=[['TÓM TẮT THỐNG KÊ'],['Khoảng ngày:',rows[0].ngay+' → '+rows[rows.length-1].ngay],['Số ngày:',rows.length],['Số ngày cảnh báo:',alerts.length],[''],['Chỉ tiêu','Trung bình','Lớn nhất','Nhỏ nhất']];
+  fields.forEach(function(f){ var s=stats(f[1]); sumData.push([f[0],s.tb,s.max,s.min]); });
+  sumData.push(['']);
+  sumData.push(['DANH SÁCH NGÀY CẢNH BÁO']);
+  sumData.push(['Ngày','Thứ','Nội dung cảnh báo']);
+  alerts.forEach(function(d){ sumData.push([d.ngay,d.thu,d.cb]); });
+  var ws2=XLSX.utils.aoa_to_sheet(sumData);
+  ws2['!cols']=[{wch:22},{wch:14},{wch:42}];
+
+  var wb=XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb,ws2,'Tóm tắt');
+  XLSX.utils.book_append_sheet(wb,ws1,'Dữ liệu');
+  var fname='UMC_NuocThai_'+(weekdayOnly===true?'T2-T6_':'')+(document.getElementById('dFrom').value||'')+'_'+(document.getElementById('dTo').value||'')+'.xlsx';
+  XLSX.writeFile(wb,fname);
+}
+document.getElementById('btnExport').addEventListener('click',function(){exportExcel(false);});
+document.getElementById('btnExportWd').addEventListener('click',function(){exportExcel(true);});
+document.getElementById('dFrom').addEventListener('change',updateExportCount);
+document.getElementById('dTo').addEventListener('change',updateExportCount);
+document.getElementById('filter').addEventListener('click',function(e){
+  if(!e.target.classList.contains('chip')) return;
+  document.querySelectorAll('.chip').forEach(function(c){c.classList.remove('on')});
+  e.target.classList.add('on');
+  curRange=e.target.dataset.r;
+  if(ALL_RECS.length) renderView();
+});
+
+document.getElementById('reload').addEventListener('click',function(){ load(false); });
+load(false);
+setInterval(function(){ load(true); }, 10*60*1000);
+document.addEventListener('visibilitychange', function(){
+  if(document.visibilityState==='visible') load(true);
+});
+window.addEventListener('pageshow', function(){ load(true); });
+window.addEventListener('online', function(){ load(true); });
+
+</script>
+</body>
+</html>

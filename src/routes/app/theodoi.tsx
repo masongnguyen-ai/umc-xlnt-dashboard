@@ -1,0 +1,588 @@
+import { useMemo, useState } from "react";
+import { createFileRoute } from "@tanstack/react-router";
+import {
+  Area,
+  AreaChart,
+  Bar,
+  BarChart,
+  CartesianGrid,
+  Line,
+  LineChart,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
+} from "recharts";
+import { Droplets, Scale, Waves } from "lucide-react";
+import { toast } from "sonner";
+import { useAppStore } from "@/lib/store";
+import { FLOW_SHEET_HTML } from "@/lib/flow-data";
+import { fmtNum, todayISO } from "@/lib/format";
+import { kpiClass, annotateFlow } from "@/lib/flow";
+import { syncSheet } from "@/lib/sync-sheet";
+import { Kpi } from "@/components/kpi";
+import { SourceBanner } from "@/components/source-banner";
+import { HtmlFilesCard } from "@/components/html-files-card";
+import { InstallApp } from "@/components/install-app";
+import { KeepAwake } from "@/components/keep-awake";
+import { LiveSyncBar } from "@/components/live-sync-bar";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
+import type { FlowDay } from "@/lib/types";
+
+export const Route = createFileRoute("/app/theodoi")({ component: TheoDoi });
+
+type Range = "all" | "30" | "60" | "weekday" | "alert";
+
+type TableRow = {
+  iso: string;
+  ngay: string;
+  thu: string;
+  llnt: number | null;
+  ntday: number | null;
+  lldem: number | null;
+  ll600: number | null;
+  he600day: number | null;
+  ll220: number | null;
+  he220day: number | null;
+  llcap: number | null;
+  capday: number | null;
+  thatthoatB: number | null;
+  chenh: number | null;
+  cb: string;
+  open?: boolean;
+};
+
+const THU = ["CN", "T2", "T3", "T4", "T5", "T6", "T7"] as const;
+
+function avg(arr: FlowDay[], f: keyof FlowDay) {
+  const v = arr.map((x) => x[f]).filter((n): n is number => typeof n === "number");
+  if (!v.length) return null;
+  return Math.round(v.reduce((a, b) => a + b, 0) / v.length);
+}
+function maxOf(arr: FlowDay[], f: keyof FlowDay) {
+  const v = arr.map((x) => x[f]).filter((n): n is number => typeof n === "number");
+  return v.length ? Math.max(...v) : null;
+}
+function minOf(arr: FlowDay[], f: keyof FlowDay) {
+  const v = arr.map((x) => x[f]).filter((n): n is number => typeof n === "number");
+  return v.length ? Math.min(...v) : null;
+}
+
+function shortNgay(ngay: string) {
+  const m = ngay.match(/^(\d{1,2})\/(\d{1,2})\//);
+  if (!m) return ngay;
+  return `${Number(m[1])}/${Number(m[2])}`;
+}
+
+function prevDays(days: FlowDay[], field: keyof FlowDay, digits = 0) {
+  const prev = days.slice(-3, -1).reverse();
+  if (!prev.length) return undefined;
+  return prev
+    .map((d) => {
+      const n = d[field];
+      return `${shortNgay(d.ngay)}: ${fmtNum(typeof n === "number" ? n : null, digits)} m³`;
+    })
+    .join("\n");
+}
+
+function prevDaysCompact(days: FlowDay[], field: keyof FlowDay, digits = 0) {
+  const prev = days.slice(-3, -1).reverse();
+  if (!prev.length) return undefined;
+  return prev
+    .map((d) => {
+      const n = d[field];
+      return `${shortNgay(d.ngay)}: ${fmtNum(typeof n === "number" ? n : null, digits)}`;
+    })
+    .join(" - ");
+}
+
+const axis = { stroke: "#5c6773", fontSize: 11 };
+const grid = { stroke: "#24303a" };
+
+function ChartTip({ active, payload, label }: { active?: boolean; payload?: { name: string; value: number; color: string }[]; label?: string }) {
+  if (!active || !payload?.length) return null;
+  return (
+    <div className="rounded-md border border-border bg-surface px-3 py-2 text-xs shadow-panel">
+      <div className="mb-1 text-muted">{label}</div>
+      {payload.map((p) => (
+        <div key={p.name} className="flex justify-between gap-4 tabular-nums">
+          <span style={{ color: p.color }}>{p.name}</span>
+          <span>{fmtNum(p.value)}</span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function TheoDoi() {
+  const flowDays = useAppStore((s) => s.flowDays);
+  const thresholds = useAppStore((s) => s.thresholds);
+  const [range, setRange] = useState<Range>("30");
+  const [busy, setBusy] = useState(false);
+  const [tab, setTab] = useState<"trend" | "balance" | "daynight">("trend");
+
+  async function refreshSheet() {
+    setBusy(true);
+    try {
+      await syncSheet({ toast: "always" });
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Không đọc được sheet.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  const ntMax = thresholds.find((t) => t.Ma_nguong === "NT_NGAY_THUONG")?.Gia_tri_1 ?? 810;
+  const ntWe = thresholds.find((t) => t.Ma_nguong === "NT_CUOI_TUAN")?.Gia_tri_1 ?? 650;
+  const he600 = thresholds.find((t) => t.Ma_nguong === "HE600_MAX")?.Gia_tri_1 ?? 600;
+  const he220 = thresholds.find((t) => t.Ma_nguong === "HE220_KHOANG");
+
+  const recs = useMemo(() => {
+    if (range === "30") return flowDays.slice(-30);
+    if (range === "60") return flowDays.slice(-60);
+    if (range === "weekday") return flowDays.filter((d) => d.thu !== "T7" && d.thu !== "CN");
+    if (range === "alert") return flowDays.filter((d) => d.cb && d.cb !== "OK");
+    return flowDays;
+  }, [flowDays, range]);
+
+  const last = flowDays.length
+    ? annotateFlow([flowDays[flowDays.length - 1]], thresholds)[0]
+    : undefined;
+  const tableRows = useMemo<TableRow[]>(() => {
+    const list: TableRow[] = [...recs].reverse().map((d) => ({ ...d }));
+    const iso = todayISO();
+    if (!list.some((d) => d.iso === iso) && range !== "alert") {
+      const d = new Date(`${iso}T00:00:00`);
+      const dd = String(d.getDate()).padStart(2, "0");
+      const mm = String(d.getMonth() + 1).padStart(2, "0");
+      list.unshift({
+        iso,
+        ngay: `${dd}/${mm}/${d.getFullYear()}`,
+        thu: THU[d.getDay()],
+        llnt: null,
+        ntday: null,
+        lldem: null,
+        ll600: null,
+        he600day: null,
+        ll220: null,
+        he220day: null,
+        llcap: null,
+        capday: null,
+        thatthoatB: null,
+        chenh: null,
+        cb: "",
+        open: true,
+      });
+    }
+    return list;
+  }, [recs, range]);
+  const lastTone = last
+    ? last.cb === "OK"
+      ? "ok"
+      : last.cb.includes("Vượt") || last.cb.includes("Hệ 600")
+        ? "bad"
+        : "warn"
+    : "neutral";
+  const ntLimit = last && (last.thu === "T7" || last.thu === "CN") ? ntWe : ntMax;
+  const tone = (v: number | null | undefined, max: number) => {
+    const c = kpiClass(v, max);
+    return c === "ok" || c === "warn" || c === "bad" ? c : "neutral";
+  };
+  const alertDays = recs.filter((d) => d.cb && d.cb !== "OK").length;
+  const leakTone =
+    last && Math.abs(last.thatthoatB) > 5 ? "bad" : last ? "ok" : "neutral";
+  const chenhTone = last && last.chenh > 140 ? "bad" : "neutral";
+
+  const t30 = flowDays.slice(-30).map((d) => ({
+    ...d,
+    llnt: d.llnt < 0 ? 0 : d.llnt,
+    llcap: d.llcap < 0 ? 0 : d.llcap,
+    nguongNt: ntMax,
+    nguongWe: ntWe,
+  }));
+
+  const chips: { id: Range; label: string }[] = [
+    { id: "all", label: "Tất cả" },
+    { id: "30", label: "30 ngày" },
+    { id: "60", label: "60 ngày" },
+    { id: "weekday", label: "T2–T6" },
+    { id: "alert", label: "Cảnh báo" },
+  ];
+  const tabs = [
+    { id: "trend" as const, label: "Xu hướng" },
+    { id: "balance" as const, label: "Cân bằng nước" },
+    { id: "daynight" as const, label: "Ngày–đêm" },
+  ];
+
+  return (
+    <div className="mx-auto max-w-6xl space-y-4">
+      <div
+        className={cn(
+          "overflow-hidden rounded-xl border",
+          lastTone === "ok" && "border-ok/40 bg-ok/10",
+          lastTone === "warn" && "border-warn/40 bg-warn/10",
+          lastTone === "bad" && "border-bad/40 bg-bad/10",
+        )}
+      >
+        <div className="grid grid-cols-3 divide-x divide-border/70">
+          <div className="flex items-start gap-2 px-3 py-2.5">
+            <span
+              className={cn(
+                "mt-1 size-2 shrink-0 rounded-full",
+                lastTone === "ok" && "bg-ok",
+                lastTone === "warn" && "bg-warn",
+                lastTone === "bad" && "bg-bad",
+                lastTone === "neutral" && "bg-muted",
+              )}
+            />
+            <div className="min-w-0">
+              <div className="text-[10px] uppercase tracking-wide text-muted">Ngày gần nhất</div>
+              <div className="text-[13px] font-semibold tabular-nums leading-tight">
+                {last?.ngay}
+              </div>
+              <div className="text-[11px] text-muted">{last?.thu}</div>
+            </div>
+          </div>
+          <div className="min-w-0 px-2 py-2.5 text-center sm:px-3">
+            <div className="banner-title">Nước thải</div>
+            <div className="banner-value mt-1">
+              {fmtNum(last?.llnt)} <span className="kpi-unit">m³</span>
+            </div>
+            <div className="kpi-prev mt-1">
+              Hệ 600: {fmtNum(last?.ll600)} m³ - Hệ 220: {fmtNum(last?.ll220)} m³
+            </div>
+          </div>
+          <div className="min-w-0 px-2 py-2.5 text-center sm:px-3">
+            <div className="banner-title">Nước cấp</div>
+            <div className="banner-value mt-1">
+              {fmtNum(last?.llcap)} <span className="kpi-unit">m³</span>
+            </div>
+            <div className="kpi-prev mt-1">
+              Khu A: {fmtNum(last?.llcapA)} m³ - Khu B: {fmtNum(last?.llcapB)} m³
+            </div>
+          </div>
+        </div>
+        <div
+          className={cn(
+            "border-t px-3 py-2 text-[12px] font-semibold leading-snug",
+            last?.cb && last.cb !== "OK"
+              ? "border-bad/20 text-bad"
+              : "border-ok/20 text-ok",
+          )}
+        >
+          {last?.cb === "OK" || !last?.cb ? "Không có cảnh báo lưu lượng." : `Cảnh báo: ${last.cb}`}
+        </div>
+      </div>
+
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div className="flex flex-wrap gap-2">
+          {chips.map((c) => (
+            <Button key={c.id} size="sm" variant={range === c.id ? "default" : "secondary"} onClick={() => setRange(c.id)}>
+              {c.label}
+            </Button>
+          ))}
+        </div>
+        <div className="flex flex-wrap items-center gap-1.5">
+          <a href={FLOW_SHEET_HTML} target="_blank" rel="noreferrer" className="hidden text-xs text-muted underline-offset-2 hover:text-fg hover:underline sm:inline">
+            Mở sheet gốc
+          </a>
+          <KeepAwake />
+          <Button size="sm" variant="secondary" onClick={() => void refreshSheet()} disabled={busy}>
+            {busy ? "Đang lấy…" : "Lấy số liệu mới"}
+          </Button>
+        </div>
+      </div>
+      <LiveSyncBar />
+
+      <section className="space-y-2">
+        <h2 className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.12em] text-muted">
+          <Droplets className="size-3.5 text-accent" strokeWidth={1.75} />
+          Nước thải
+        </h2>
+        <div className="grid grid-cols-2 gap-2 sm:gap-3">
+          <Kpi
+            className="row-span-2 h-full"
+            size="hero"
+            label="Nước thải 24h"
+            value={fmtNum(last?.llnt)}
+            unit="m³"
+            tag={last?.thu}
+            clock={{
+              day: last?.ntday,
+              night: last?.lldem,
+              dayNote: prevDaysCompact(flowDays, "ntday"),
+              nightNote: prevDaysCompact(flowDays, "lldem"),
+            }}
+            prev={prevDays(flowDays, "llnt")}
+            tone={tone(last?.llnt, ntLimit)}
+            max={fmtNum(maxOf(recs, "llnt"))}
+            min={fmtNum(minOf(recs, "llnt"))}
+            avg={fmtNum(avg(recs, "llnt"))}
+          />
+          <Kpi
+            label="Hệ 600"
+            value={fmtNum(last?.ll600)}
+            unit="m³"
+            tag={last?.thu}
+            prev={prevDays(flowDays, "ll600")}
+            tone={tone(last?.ll600, he600)}
+            max={fmtNum(maxOf(recs, "ll600"))}
+            min={fmtNum(minOf(recs, "ll600"))}
+            avg={fmtNum(avg(recs, "ll600"))}
+          />
+          <Kpi
+            label="Hệ 220"
+            value={fmtNum(last?.ll220)}
+            unit="m³"
+            tag={last?.thu}
+            tone={
+              last && he220 && he220.Gia_tri_2 != null
+                ? last.ll220 < he220.Gia_tri_1 || last.ll220 > he220.Gia_tri_2
+                  ? "warn"
+                  : "ok"
+                : "neutral"
+            }
+            prev={prevDays(flowDays, "ll220")}
+            max={fmtNum(maxOf(recs, "ll220"))}
+            min={fmtNum(minOf(recs, "ll220"))}
+            avg={fmtNum(avg(recs, "ll220"))}
+          />
+        </div>
+      </section>
+
+      <section className="space-y-2">
+        <h2 className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.12em] text-muted">
+          <Waves className="size-3.5 text-info" strokeWidth={1.75} />
+          Nước cấp
+        </h2>
+        <div className="grid grid-cols-2 gap-2 sm:gap-3">
+          <Kpi
+            className="row-span-2 h-full"
+            size="hero"
+            label="Nước cấp A+B"
+            value={fmtNum(last?.llcap)}
+            unit="m³"
+            tag={last?.thu}
+            clock={{
+              day: last?.capday,
+              night: last?.capdem,
+              dayNote: prevDaysCompact(flowDays, "capday"),
+              nightNote: prevDaysCompact(flowDays, "capdem"),
+            }}
+            prev={prevDays(flowDays, "llcap")}
+            tone="neutral"
+            max={fmtNum(maxOf(recs, "llcap"))}
+            min={fmtNum(minOf(recs, "llcap"))}
+            avg={fmtNum(avg(recs, "llcap"))}
+          />
+          <Kpi
+            label="Nước cấp A (24h)"
+            value={fmtNum(last?.llcapA)}
+            unit="m³"
+            tag={last?.thu}
+            prev={prevDays(flowDays, "llcapA")}
+            tone="neutral"
+            max={fmtNum(maxOf(recs, "llcapA"))}
+            min={fmtNum(minOf(recs, "llcapA"))}
+            avg={fmtNum(avg(recs, "llcapA"))}
+          />
+          <Kpi
+            label="Nước cấp B (24h)"
+            value={fmtNum(last?.llcapB)}
+            unit="m³"
+            tag={last?.thu}
+            prev={prevDays(flowDays, "llcapB")}
+            tone="neutral"
+            max={fmtNum(maxOf(recs, "llcapB"))}
+            min={fmtNum(minOf(recs, "llcapB"))}
+            avg={fmtNum(avg(recs, "llcapB"))}
+          />
+        </div>
+      </section>
+
+      <section className="space-y-2">
+        <h2 className="flex flex-wrap items-center gap-2 text-xs font-semibold uppercase tracking-[0.12em] text-muted">
+          <Scale className="size-3.5 text-warn" strokeWidth={1.75} />
+          Chênh lệch và cảnh báo
+          <span className={cn("normal-case tracking-normal", alertDays ? "text-bad" : "text-ok")}>
+            · {alertDays}/{recs.length} ngày
+          </span>
+        </h2>
+        <div className="grid grid-cols-2 gap-2 sm:gap-3">
+          <Kpi
+            label="Chênh lệch cấp − thải"
+            value={fmtNum(last?.chenh)}
+            unit="m³"
+            hint="Dưới 140 m³"
+            prev={prevDays(flowDays, "chenh")}
+            tone={chenhTone}
+            max={fmtNum(maxOf(recs, "chenh"))}
+            min={fmtNum(minOf(recs, "chenh"))}
+            avg={fmtNum(avg(recs, "chenh"))}
+          />
+          <Kpi
+            label="Thất thoát Khu B"
+            value={fmtNum(last?.thatthoatB, 1)}
+            unit="m³"
+            hint="±5 m³"
+            prev={prevDays(flowDays, "thatthoatB", 1)}
+            tone={leakTone}
+            max={fmtNum(maxOf(recs, "thatthoatB"))}
+            min={fmtNum(minOf(recs, "thatthoatB"))}
+            avg={fmtNum(avg(recs, "thatthoatB"))}
+          />
+        </div>
+      </section>
+
+      <div className="flex flex-wrap gap-1 border-b border-border">
+        {tabs.map((t) => (
+          <button
+            key={t.id}
+            type="button"
+            className={cn(
+              "min-h-10 px-3 text-sm font-semibold",
+              tab === t.id ? "border-b-2 border-accent text-fg" : "text-muted",
+            )}
+            onClick={() => setTab(t.id)}
+          >
+            {t.label}
+          </button>
+        ))}
+      </div>
+
+      {tab === "trend" ? (
+        <section className="rounded-xl border border-border bg-surface p-4">
+          <h2 className="mb-3 text-sm font-semibold">Xu hướng 30 ngày</h2>
+          <div className="h-56">
+            <ResponsiveContainer width="100%" height="100%">
+              <AreaChart data={t30}>
+                <CartesianGrid strokeDasharray="3 3" {...grid} />
+                <XAxis dataKey="ngay" tick={axis} interval={4} />
+                <YAxis tick={axis} domain={[0, "auto"]} />
+                <Tooltip content={<ChartTip />} />
+                <Area type="monotone" dataKey="llnt" name="Nước thải" stroke="#3ba89a" fill="#3ba89a" fillOpacity={0.12} />
+                <Area type="monotone" dataKey="llcap" name="Nước cấp" stroke="#7eb0d0" fill="transparent" />
+                <Line type="monotone" dataKey="nguongNt" name={`Ngưỡng ${ntMax}`} stroke="#e07a7a" strokeDasharray="4 4" dot={false} />
+              </AreaChart>
+            </ResponsiveContainer>
+          </div>
+        </section>
+      ) : null}
+
+      {tab === "balance" ? (
+        <section className="rounded-xl border border-border bg-surface p-4">
+          <h2 className="mb-3 text-sm font-semibold">Hệ 600 và hệ 220</h2>
+          <div className="h-56">
+            <ResponsiveContainer width="100%" height="100%">
+              <LineChart data={recs.slice(-30)}>
+                <CartesianGrid strokeDasharray="3 3" {...grid} />
+                <XAxis dataKey="ngay" tick={axis} interval={5} />
+                <YAxis tick={axis} domain={[0, "auto"]} />
+                <Tooltip content={<ChartTip />} />
+                <Line type="monotone" dataKey="ll600" name="Hệ 600" stroke="#6ecf9a" dot={false} strokeWidth={2} />
+                <Line type="monotone" dataKey="ll220" name="Hệ 220" stroke="#e0b44a" dot={false} strokeWidth={2} />
+              </LineChart>
+            </ResponsiveContainer>
+          </div>
+        </section>
+      ) : null}
+
+      {tab === "daynight" ? (
+        <section className="rounded-xl border border-border bg-surface p-4">
+          <h2 className="mb-3 text-sm font-semibold">Ban ngày và ban đêm</h2>
+          <div className="h-56">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={recs.slice(-21)}>
+                <CartesianGrid strokeDasharray="3 3" {...grid} />
+                <XAxis dataKey="thu" tick={axis} />
+                <YAxis tick={axis} domain={[0, "auto"]} />
+                <Tooltip content={<ChartTip />} />
+                <Bar dataKey="ntday" name="Ban ngày" stackId="a" fill="#e0b44a" />
+                <Bar dataKey="lldem" name="Ban đêm" stackId="a" fill="#7c8894" />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        </section>
+      ) : null}
+
+      <section className="rounded-xl border border-border bg-surface p-4">
+        <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
+          <h2 className="text-sm font-semibold">
+            Bảng cảnh báo và dữ liệu · {alertDays} cảnh báo
+          </h2>
+          <span className="text-xs text-muted">
+            Max {fmtNum(maxOf(recs, "llnt"))} · Min {fmtNum(minOf(recs, "llnt"))} · TB {fmtNum(avg(recs, "llnt"))}
+          </span>
+        </div>
+        <div className="tbl-wrap">
+          <table className="data-table">
+            <thead>
+              <tr>
+                <th className="grp" colSpan={2}>Thời gian</th>
+                <th className="grp" colSpan={3}>Nước thải</th>
+                <th className="grp" colSpan={2}>Hệ 600</th>
+                <th className="grp" colSpan={2}>Hệ 220</th>
+                <th className="grp" colSpan={2}>Nước cấp</th>
+                <th className="grp" colSpan={3}>Phân tích</th>
+              </tr>
+              <tr>
+                <th className="grp">Ngày</th>
+                <th>Thứ</th>
+                <th className="grp">24h</th>
+                <th>Ngày</th>
+                <th>Đêm</th>
+                <th className="grp">24h</th>
+                <th>Ngày</th>
+                <th className="grp">24h</th>
+                <th>Ngày</th>
+                <th className="grp">24h</th>
+                <th>Ngày</th>
+                <th className="grp">Thất thoát B</th>
+                <th>Chênh</th>
+                <th>Tình trạng</th>
+              </tr>
+            </thead>
+            <tbody>
+              {tableRows.map((d) => {
+                const warn = Boolean(d.cb && d.cb !== "OK");
+                const open = d.open;
+                return (
+                  <tr
+                    key={d.iso}
+                    className={cn(warn && "is-warn", open && "is-open")}
+                  >
+                    <td className="col-date">{d.ngay}</td>
+                    <td className="col-dow">{d.thu}</td>
+                    <td>{fmtNum(d.llnt)}</td>
+                    <td>{fmtNum(d.ntday)}</td>
+                    <td>{fmtNum(d.lldem)}</td>
+                    <td>{fmtNum(d.ll600)}</td>
+                    <td>{fmtNum(d.he600day)}</td>
+                    <td>{fmtNum(d.ll220)}</td>
+                    <td>{fmtNum(d.he220day)}</td>
+                    <td>{fmtNum(d.llcap)}</td>
+                    <td>{fmtNum(d.capday)}</td>
+                    <td>{fmtNum(d.thatthoatB, 1)}</td>
+                    <td>{fmtNum(d.chenh)}</td>
+                    <td className="col-status">
+                      {open ? (
+                        <span className="text-xs text-dim">Đang ghi</span>
+                      ) : (
+                        <Badge variant={warn ? "warn" : "ok"}>{warn ? "Cảnh báo" : "OK"}</Badge>
+                      )}
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      </section>
+      <InstallApp />
+      <SourceBanner />
+      <HtmlFilesCard />
+    </div>
+  );
+}

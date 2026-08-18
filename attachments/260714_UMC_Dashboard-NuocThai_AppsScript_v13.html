@@ -1,0 +1,604 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<base target="_top">
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="theme-color" content="#0c4a6e">
+<link rel="manifest" href='data:application/manifest+json,{"name":"UMC Nước thải","short_name":"Nước thải","start_url":".","display":"standalone","background_color":"%230f172a","theme_color":"%230c4a6e","icons":[{"src":"data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 192 192%22%3E%3Crect width=%22192%22 height=%22192%22 rx=%2236%22 fill=%22%230c4a6e%22/%3E%3Ctext x=%2296%22 y=%22120%22 font-size=%2290%22 text-anchor=%22middle%22 fill=%22white%22%3E%F0%9F%92%A7%3C/text%3E%3C/svg%3E","sizes":"192x192","type":"image/svg+xml"}]}'>
+<style>
+  :root{
+    --bg:#0f172a; --panel:#1e293b; --panel2:#273549; --line:#334155;
+    --txt:#e2e8f0; --muted:#94a3b8; --accent:#38bdf8;
+    --ok:#22c55e; --warn:#f59e0b; --bad:#ef4444; --cap:#a78bfa; --r:14px;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;background:var(--bg);color:var(--txt);line-height:1.5;padding:16px;padding-bottom:48px}
+  .wrap{max-width:1280px;margin:0 auto}
+  header{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;margin-bottom:18px}
+  .title{display:flex;align-items:center;gap:12px}
+  .title .ic{font-size:30px}
+  .title h1{font-size:1.25rem;font-weight:700;letter-spacing:-.02em}
+  .title p{font-size:.78rem;color:var(--muted)}
+  .actions{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+  .btn{background:var(--panel);border:1px solid var(--line);color:var(--txt);padding:8px 14px;border-radius:10px;font-size:.82rem;cursor:pointer;transition:.15s;display:inline-flex;align-items:center;gap:6px}
+  .btn:hover{background:var(--panel2);border-color:var(--accent)}
+  .btn.live{color:var(--ok)} .dot{width:8px;height:8px;border-radius:50%;background:var(--ok);animation:pulse 2s infinite}
+  @keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
+  .updated{font-size:.72rem;color:var(--muted)}
+  .export-bar{background:var(--panel);border:1px solid var(--line);border-radius:var(--r);padding:14px 16px;margin-bottom:18px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+  .export-bar .lbl{font-size:.8rem;color:var(--muted);font-weight:600}
+  .export-bar input[type=date]{background:var(--panel2);border:1px solid var(--line);color:var(--txt);padding:7px 10px;border-radius:8px;font-size:.82rem;font-family:inherit}
+  .export-bar .btn-export{background:var(--ok);color:#0f172a;border:none;font-weight:700;padding:8px 16px;border-radius:8px;cursor:pointer;font-size:.82rem}
+  .export-bar .btn-export:hover{opacity:.9}
+  .export-bar .cnt{font-size:.76rem;color:var(--accent);margin-left:auto}
+  .filter{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:16px}
+  .chip{background:var(--panel);border:1px solid var(--line);color:var(--muted);padding:6px 14px;border-radius:20px;font-size:.8rem;cursor:pointer}
+  .chip.on{background:var(--accent);color:#0f172a;border-color:var(--accent);font-weight:600}
+  .statbar{display:flex;gap:16px;flex-wrap:wrap;margin-bottom:12px;padding:10px 12px;background:var(--panel2);border-radius:10px}
+  .statbar .s{font-size:.78rem;color:var(--muted)}
+  .statbar .s b{color:var(--txt);font-size:.95rem;font-weight:700;display:block}
+  .kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:18px}
+  .kpi-sec{margin-bottom:16px}
+  .kpi-sec .kpis{margin-bottom:0}
+  .kpi-hd{display:flex;align-items:center;gap:10px;font-size:.76rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:10px}
+  .kpi-hd::after{content:'';flex:1;height:1px;background:var(--line)}
+  .kpi-hd .em{font-size:.95rem}
+  .kpi{background:var(--panel);border:1px solid var(--line);border-radius:var(--r);padding:14px 16px;position:relative;overflow:hidden}
+  .kpi::before{content:'';position:absolute;left:0;top:0;bottom:0;width:4px;background:var(--accent)}
+  .kpi .lbl{font-size:.72rem;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;margin-bottom:6px}
+  .kpi .val{font-size:1.7rem;font-weight:700;letter-spacing:-.02em}
+  .kpi .val span{font-size:.85rem;color:var(--muted);font-weight:400}
+  .kpi .sub{font-size:.74rem;color:var(--muted);margin-top:4px}
+  .kpi .mm{font-size:.7rem;color:var(--muted);margin-top:6px;display:flex;gap:10px;flex-wrap:wrap;border-top:1px solid var(--line);padding-top:6px}
+  .kpi .mm span{white-space:nowrap}
+  .kpi .mm b{color:var(--txt);font-weight:600}
+  .todaybar{border-radius:var(--r);padding:14px 18px;margin-bottom:18px;display:flex;align-items:center;gap:14px;flex-wrap:wrap;border:1px solid var(--line)}
+  .todaybar.ok{background:rgba(34,197,94,.08);border-color:var(--ok)}
+  .todaybar.warn{background:rgba(245,158,11,.1);border-color:var(--warn)}
+  .todaybar.bad{background:rgba(239,68,68,.1);border-color:var(--bad)}
+  .todaybar .icon{font-size:26px}
+  .todaybar .tb-day{font-size:.8rem;color:var(--muted)}
+  .todaybar .tb-day b{color:var(--txt);font-size:1.05rem;display:block}
+  .todaybar .tb-msg{font-size:.9rem;font-weight:600;flex:1;min-width:200px}
+  .todaybar.ok .tb-msg{color:#4ade80}
+  .todaybar.warn .tb-msg{color:#fbbf24}
+  .todaybar.bad .tb-msg{color:#f87171}
+  .kpi.ok::before{background:var(--ok)} .kpi.warn::before{background:var(--warn)} .kpi.bad::before{background:var(--bad)} .kpi.cap::before{background:var(--cap)}
+  .grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:var(--r);padding:16px}
+  .card h2{font-size:.92rem;font-weight:600;margin-bottom:14px;display:flex;align-items:center;gap:8px}
+  .card h2 .tag{font-size:.68rem;font-weight:400;color:var(--muted);margin-left:auto}
+  .full{grid-column:1/-1}
+  canvas{width:100%!important;max-height:280px}
+  .tbl-wrap{overflow-x:auto;-webkit-overflow-scrolling:touch}
+  table{width:100%;border-collapse:collapse;font-size:.82rem;white-space:nowrap}
+  th,td{padding:8px 10px;text-align:right;border-bottom:1px solid var(--line)}
+  th{color:var(--muted);font-weight:500;font-size:.74rem;text-transform:uppercase;letter-spacing:.03em;position:sticky;top:0;background:var(--panel)}
+  th:first-child,td:first-child{text-align:left;position:sticky;left:0;background:var(--panel)}
+  tr:hover td{background:var(--panel2)}
+  .badge{display:inline-block;padding:2px 9px;border-radius:20px;font-size:.72rem;font-weight:600}
+  .b-ok{background:rgba(34,197,94,.15);color:#4ade80}
+  .b-warn{background:rgba(245,158,11,.15);color:#fbbf24}
+  .b-bad{background:rgba(239,68,68,.15);color:#f87171}
+  tr.row-bad{background:rgba(239,68,68,.06)}
+  tr.row-warn{background:rgba(245,158,11,.05)}
+  .loading{text-align:center;padding:60px 20px;color:var(--muted)}
+  .spin{width:34px;height:34px;border:3px solid var(--line);border-top-color:var(--accent);border-radius:50%;animation:rot 1s linear infinite;margin:0 auto 14px}
+  @keyframes rot{to{transform:rotate(360deg)}}
+  .err{background:rgba(239,68,68,.1);border:1px solid var(--bad);border-radius:var(--r);padding:16px;color:#fca5a5;font-size:.85rem}
+  @media(max-width:760px){
+    body{padding:12px;padding-bottom:40px}
+    .grid{grid-template-columns:1fr}
+    .title h1{font-size:1.05rem}
+    .kpi .val{font-size:1.4rem}
+    canvas{max-height:230px}
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="title">
+      <span class="ic">💧</span>
+      <div>
+        <h1>Giám sát lưu lượng nước thải</h1>
+        <p>Bệnh viện Đại học Y Dược TP.HCM</p>
+      </div>
+    </div>
+    <div class="actions">
+      <span class="btn live"><span class="dot"></span>Đồng bộ Sheet</span>
+      <button class="btn" id="reload">↻ Tải lại</button>
+      <span class="updated" id="updated"></span>
+    </div>
+  </header>
+  <div class="export-bar">
+    <span class="lbl">📤 Trích xuất:</span>
+    <span style="font-size:.8rem">Từ</span>
+    <input type="date" id="dFrom">
+    <span style="font-size:.8rem">đến</span>
+    <input type="date" id="dTo">
+    <button class="btn-export" id="btnExport">⬇ Xuất Excel (.xlsx)</button>
+    <button class="btn-export" id="btnExportWd" style="background:#38bdf8">⬇ Xuất T2–T6</button>
+    <span class="cnt" id="exportCnt"></span>
+  </div>
+  <div class="filter" id="filter">
+    <span class="chip on" data-r="all">Tất cả</span>
+    <span class="chip" data-r="30">30 ngày</span>
+    <span class="chip" data-r="60">60 ngày</span>
+    <span class="chip" data-r="weekday">T2–T6</span>
+    <span class="chip" data-r="alert">Chỉ cảnh báo</span>
+  </div>
+  <div id="app">
+    <div class="loading"><div class="spin"></div>Đang tải dữ liệu từ Google Sheet…</div>
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script>
+let NT_MAX_WEEK=810, NT_MAX_WEEKEND=650, CHENH_MAX=140, HE600_MAX=600, HE220_MIN=200, HE220_MAX=220, THATTHOAT_MAX=5;
+function updateDynamicThresholds(thresholds) {
+  if (!thresholds || !Array.isArray(thresholds)) return;
+  thresholds.forEach(function(t) {
+    if (!t.Kich_hoat) return;
+    var val1 = parseFloat(t.Gia_tri_1);
+    var val2 = t.Gia_tri_2 !== '' ? parseFloat(t.Gia_tri_2) : null;
+    
+    if (t.Ma_nguong === 'NT_NGAY_THUONG' && !isNaN(val1)) {
+      NT_MAX_WEEK = val1;
+    } else if (t.Ma_nguong === 'NT_CUOI_TUAN' && !isNaN(val1)) {
+      NT_MAX_WEEKEND = val1;
+    } else if (t.Ma_nguong === 'HE600_MAX' && !isNaN(val1)) {
+      HE600_MAX = val1;
+    } else if (t.Ma_nguong === 'HE220_KHOANG') {
+      if (!isNaN(val1)) HE220_MIN = val1;
+      if (val2 !== null && !isNaN(val2)) HE220_MAX = val2;
+    } else if (t.Ma_nguong === 'CHENH_CAP_THAI' && !isNaN(val1)) {
+      CHENH_MAX = val1;
+    } else if (t.Ma_nguong === 'THAT_THOAT_B') {
+      var possibleMax = Math.max(Math.abs(val1), Math.abs(val2 || 0));
+      if (!isNaN(possibleMax) && possibleMax > 0) {
+        THATTHOAT_MAX = possibleMax;
+      }
+    }
+  });
+}
+
+let charts={};
+let ALL_RECS=[];
+
+function num(v){ if(v==null||v==='') return null; const n=parseFloat(String(v).replace(/[^\d.-]/g,'')); return isNaN(n)?null:n; }
+function fmt(n){ return n==null?'–':n.toLocaleString('vi-VN',{maximumFractionDigits:0}); }
+
+function load(){
+  document.getElementById('app').innerHTML='<div class="loading"><div class="spin"></div>Đang tải dữ liệu…</div>';
+  google.script.run
+    .withSuccessHandler(function(resp){
+      if(resp.error){ showErr(resp.error); return; }
+      if(resp.thresholds) {
+        updateDynamicThresholds(resp.thresholds);
+      }
+      render(resp.rows);
+      document.getElementById('updated').textContent='Cập nhật: '+resp.updated;
+    })
+    .withFailureHandler(function(err){ showErr(err.message||err); })
+    .getData();
+}
+function showErr(m){ document.getElementById('app').innerHTML='<div class="err">Lỗi tải dữ liệu: '+m+'</div>'; }
+
+function render(rows){
+  const data=rows.slice(1).filter(r=>r[0]&&String(r[0]).trim()!=='');
+  const recs=data.map(r=>({
+    ngay:r[0], nt7:num(r[1]), nt17:num(r[2]), s600:num(r[3]), s220:num(r[4]),
+    capA:num(r[5]), capB:num(r[6]), llnt:num(r[7]), lldem:num(r[8]),
+    ll600:num(r[9]), ll220:num(r[10]), llcap:num(r[11]), chenh:num(r[12]),
+    cb:String(r[13]||'').trim(), thu:String(r[14]||'').trim(),
+    ntday:num(r[15]), capday:num(r[16]), he600day:num(r[17]), he220day:num(r[18]),
+    llvaoB:num(r[21]), llcapB:num(r[22]), thatthoatB:num(String(r[23]||'').replace('⚠','')),
+    llcapA:num(r[24]),
+    iso:String(r[25]||'').trim()
+  }));
+  // Nước cấp ban đêm = Cấp 24h − Cấp ban ngày (chỉ tính khi đủ cả 2)
+  recs.forEach(function(d){ d.capdem=(d.llcap!=null&&d.capday!=null)?d.llcap-d.capday:null; });
+  ALL_RECS=recs;
+  setupExportDates(recs);
+  renderView();
+}
+
+let curRange='all';
+function getFilteredRecs(){
+  var recs=ALL_RECS.slice();
+  if(curRange==='30') return recs.slice(-30);
+  if(curRange==='60') return recs.slice(-60);
+  if(curRange==='weekday') return recs.filter(function(d){return d.thu&&d.thu!=='T7'&&d.thu!=='CN';});
+  if(curRange==='alert') return recs.filter(function(d){return d.cb&&!d.cb.includes('OK')&&d.cb.indexOf('Chưa đủ')<0&&d.cb!=='';});
+  return recs;
+}
+function avg(arr,f){ var v=arr.map(function(x){return x[f]}).filter(function(n){return n!=null}); if(!v.length) return null; return Math.round(v.reduce(function(a,b){return a+b},0)/v.length); }
+function maxOf(arr,f){ var v=arr.map(function(x){return x[f]}).filter(function(n){return n!=null}); if(!v.length) return null; return Math.max.apply(null,v); }
+function minOf(arr,f){ var v=arr.map(function(x){return x[f]}).filter(function(n){return n!=null}); if(!v.length) return null; return Math.min.apply(null,v); }
+
+function renderView(){
+  const recs=getFilteredRecs();
+  const valid=recs.filter(d=>d.llnt!=null);
+  const last=ALL_RECS.filter(d=>d.llnt!=null).slice(-1)[0]||{};
+  const alerts=recs.filter(d=>d.cb&&!d.cb.includes('OK')&&d.cb.indexOf('Chưa đủ')<0&&d.cb!=='');
+
+  // Banner tình trạng ngày gần nhất (bản ghi mới nhất có cảnh báo/dữ liệu)
+  const lastRec=ALL_RECS.filter(d=>d.cb&&d.cb.indexOf('Chưa đủ')<0&&d.cb!=='').slice(-1)[0]||last;
+  const tbCls=(!lastRec.cb||lastRec.cb.includes('OK'))?'ok':(lastRec.cb.includes('🟠')?'warn':'bad');
+  const tbIcon=tbCls==='ok'?'✅':(tbCls==='warn'?'🟠':'🔴');
+  const tbMsg=(!lastRec.cb||lastRec.cb.includes('OK'))?'Ngày gần nhất bình thường, không có cảnh báo':lastRec.cb;
+  const todaybar=`
+    <div class="todaybar ${tbCls}">
+      <span class="icon">${tbIcon}</span>
+      <div class="tb-day">Ngày gần nhất<b>${lastRec.ngay||last.ngay||''} · ${lastRec.thu||last.thu||''}</b></div>
+      <div class="tb-msg">${tbMsg}</div>
+      <div class="tb-day">NThải<b>${fmt(lastRec.llnt)} m³</b></div>
+    </div>`;
+
+  // KPI (luôn theo bản ghi mới nhất toàn cục)
+  const lastNtday=ALL_RECS.filter(d=>d.ntday!=null).slice(-1)[0]||{};
+  const lastDem=ALL_RECS.filter(d=>d.lldem!=null).slice(-1)[0]||{};
+  const lastCapday=ALL_RECS.filter(d=>d.capday!=null).slice(-1)[0]||{};
+  const lastCapdem=ALL_RECS.filter(d=>d.capdem!=null).slice(-1)[0]||{};
+  const lastCapA=ALL_RECS.filter(d=>d.llcapA!=null).slice(-1)[0]||{};
+  const lastCapB=ALL_RECS.filter(d=>d.llcapB!=null).slice(-1)[0]||{};
+  const kpiHTML=`
+    <div class="kpi-sec">
+      <div class="kpi-hd"><span class="em">💧</span>Nước thải</div>
+      <div class="kpis">
+        <div class="kpi ${kpiClass(last.llnt, (last.thu === 'T7' || last.thu === 'CN') ? NT_MAX_WEEKEND : NT_MAX_WEEK)}">
+          <div class="lbl">Nước thải 24h</div>
+          <div class="val">${fmt(last.llnt)} <span>m³</span></div>
+          <div class="sub">${last.ngay||''} · ${last.thu||''} · ngày: ${fmt(last.ntday)} m³</div>
+          <div class="mm"><span>Max <b>${fmt(maxOf(valid,'llnt'))}</b></span><span>Min <b>${fmt(minOf(valid,'llnt'))}</b></span><span>TB <b>${fmt(avg(valid,'llnt'))}</b></span></div>
+        </div>
+        <div class="kpi ${lastNtday.ntday!=null?'ok':''}">
+          <div class="lbl">NThải ban ngày · 7h30→17h30</div>
+          <div class="val">${fmt(lastNtday.ntday)} <span>m³</span></div>
+          <div class="sub">${lastNtday.ngay||''}</div>
+          <div class="mm"><span>Max <b>${fmt(maxOf(valid,'ntday'))}</b></span><span>Min <b>${fmt(minOf(valid,'ntday'))}</b></span><span>TB <b>${fmt(avg(valid,'ntday'))}</b></span></div>
+        </div>
+        <div class="kpi ${lastDem.lldem!=null?'ok':''}">
+          <div class="lbl">NThải ban đêm · 17h30→7h30</div>
+          <div class="val">${fmt(lastDem.lldem)} <span>m³</span></div>
+          <div class="sub">${lastDem.ngay||''} · ngày + đêm = 24h</div>
+          <div class="mm"><span>Max <b>${fmt(maxOf(valid,'lldem'))}</b></span><span>Min <b>${fmt(minOf(valid,'lldem'))}</b></span><span>TB <b>${fmt(avg(valid,'lldem'))}</b></span></div>
+        </div>
+        <div class="kpi ${last.ll600>=HE600_MAX?'bad':'ok'}">
+          <div class="lbl">Hệ 600</div>
+          <div class="val">${fmt(last.ll600)} <span>m³</span></div>
+          <div class="sub">Ngưỡng &lt; ${HE600_MAX} · ngày: ${fmt(last.he600day)} m³</div>
+          <div class="mm"><span>Max <b>${fmt(maxOf(valid,'ll600'))}</b></span><span>Min <b>${fmt(minOf(valid,'ll600'))}</b></span><span>TB <b>${fmt(avg(valid,'ll600'))}</b></span></div>
+        </div>
+        <div class="kpi ${(last.ll220<HE220_MIN||last.ll220>HE220_MAX)?'warn':'ok'}">
+          <div class="lbl">Hệ 220</div>
+          <div class="val">${fmt(last.ll220)} <span>m³</span></div>
+          <div class="sub">Khoảng ${HE220_MIN}–${HE220_MAX} · ngày: ${fmt(last.he220day)} m³</div>
+          <div class="mm"><span>Max <b>${fmt(maxOf(valid,'ll220'))}</b></span><span>Min <b>${fmt(minOf(valid,'ll220'))}</b></span><span>TB <b>${fmt(avg(valid,'ll220'))}</b></span></div>
+        </div>
+      </div>
+    </div>
+    <div class="kpi-sec">
+      <div class="kpi-hd"><span class="em">🚰</span>Nước cấp</div>
+      <div class="kpis">
+        <div class="kpi cap">
+          <div class="lbl">Nước cấp A+B</div>
+          <div class="val">${fmt(last.llcap)} <span>m³</span></div>
+          <div class="sub">A: ${fmt(lastCapA.llcapA)} · B: ${fmt(lastCapB.llcapB)}</div>
+          <div class="mm"><span>Max <b>${fmt(maxOf(valid,'llcap'))}</b></span><span>Min <b>${fmt(minOf(valid,'llcap'))}</b></span><span>TB <b>${fmt(avg(valid,'llcap'))}</b></span></div>
+        </div>
+        <div class="kpi ok">
+          <div class="lbl">Nước cấp A (24h)</div>
+          <div class="val">${fmt(lastCapA.llcapA)} <span>m³</span></div>
+          <div class="sub">${lastCapA.ngay||''}</div>
+          <div class="mm"><span>Max <b>${fmt(maxOf(valid,'llcapA'))}</b></span><span>Min <b>${fmt(minOf(valid,'llcapA'))}</b></span><span>TB <b>${fmt(avg(valid,'llcapA'))}</b></span></div>
+        </div>
+        <div class="kpi ok">
+          <div class="lbl">Nước cấp B (24h)</div>
+          <div class="val">${fmt(lastCapB.llcapB)} <span>m³</span></div>
+          <div class="sub">Thất thoát Khu B: ${fmt(lastCapB.thatthoatB)} m³</div>
+          <div class="mm"><span>Max <b>${fmt(maxOf(valid,'llcapB'))}</b></span><span>Min <b>${fmt(minOf(valid,'llcapB'))}</b></span><span>TB <b>${fmt(avg(valid,'llcapB'))}</b></span></div>
+        </div>
+        <div class="kpi cap">
+          <div class="lbl">Nước cấp ban ngày · 7h30→17h30</div>
+          <div class="val">${fmt(lastCapday.capday)} <span>m³</span></div>
+          <div class="sub">${lastCapday.ngay||''}</div>
+          <div class="mm"><span>Max <b>${fmt(maxOf(valid,'capday'))}</b></span><span>Min <b>${fmt(minOf(valid,'capday'))}</b></span><span>TB <b>${fmt(avg(valid,'capday'))}</b></span></div>
+        </div>
+        <div class="kpi cap">
+          <div class="lbl">Nước cấp ban đêm · 17h30→7h30</div>
+          <div class="val">${fmt(lastCapdem.capdem)} <span>m³</span></div>
+          <div class="sub">${lastCapdem.ngay||''} · = Cấp 24h − Cấp ban ngày</div>
+          <div class="mm"><span>Max <b>${fmt(maxOf(valid,'capdem'))}</b></span><span>Min <b>${fmt(minOf(valid,'capdem'))}</b></span><span>TB <b>${fmt(avg(valid,'capdem'))}</b></span></div>
+        </div>
+      </div>
+    </div>
+    <div class="kpi-sec">
+      <div class="kpi-hd"><span class="em">⚖️</span>Chênh lệch và cảnh báo</div>
+      <div class="kpis">
+        <div class="kpi ${last.chenh!=null&&Math.abs(last.chenh)>CHENH_MAX?'bad':'cap'}">
+          <div class="lbl">Chênh lệch Cấp − Thải</div>
+          <div class="val">${fmt(last.chenh)} <span>m³</span></div>
+          <div class="sub">Ngưỡng &lt; ${CHENH_MAX} m³ (nghi tràn/rò rỉ)</div>
+          <div class="mm"><span>Max <b>${fmt(maxOf(valid,'chenh'))}</b></span><span>Min <b>${fmt(minOf(valid,'chenh'))}</b></span><span>TB <b>${fmt(avg(valid,'chenh'))}</b></span></div>
+        </div>
+        <div class="kpi ${lastCapB.thatthoatB!=null&&Math.abs(lastCapB.thatthoatB)>THATTHOAT_MAX?'bad':'ok'}">
+          <div class="lbl">Thất thoát Khu B (24h)</div>
+          <div class="val">${fmt(lastCapB.thatthoatB)} <span>m³</span></div>
+          <div class="sub">Ngưỡng ±${THATTHOAT_MAX} m³ (Cấp B − Đầu vào B)</div>
+          <div class="mm"><span>Max <b>${fmt(maxOf(valid,'thatthoatB'))}</b></span><span>Min <b>${fmt(minOf(valid,'thatthoatB'))}</b></span><span>TB <b>${fmt(avg(valid,'thatthoatB'))}</b></span></div>
+        </div>
+        <div class="kpi ${alerts.length?'bad':'ok'}">
+          <div class="lbl">Ngày cảnh báo</div>
+          <div class="val">${alerts.length}</div>
+          <div class="sub">/ ${valid.length} ngày (theo lọc)</div>
+          <div class="mm"><span>Thất thoát B max <b>${fmt(maxOf(valid,'thatthoatB'))}</b></span></div>
+        </div>
+      </div>
+    </div>`;
+
+  // Dải thống kê thẻ So sánh 24h
+  const s24=`
+    <div class="statbar">
+      <div class="s">TB nước thải<b>${fmt(avg(valid,'llnt'))} m³</b></div>
+      <div class="s">TB nước cấp<b>${fmt(avg(valid,'llcap'))} m³</b></div>
+      <div class="s">TB chênh lệch<b>${fmt(avg(valid,'chenh'))} m³</b></div>
+      <div class="s">Max 24h<b>${fmt(maxOf(valid,'llnt'))} m³</b></div>
+    </div>`;
+
+  // Dải thống kê thẻ ban ngày
+  const dd=valid.filter(d=>d.ntday!=null);
+  const tbNgay=avg(dd,'ntday'), tbDem=avg(dd,'lldem');
+  const tyle=(tbNgay!=null&&avg(dd,'llnt'))?Math.round(tbNgay/avg(dd,'llnt')*100):null;
+  const sDay=`
+    <div class="statbar">
+      <div class="s">TB ban ngày<b>${fmt(tbNgay)} m³</b></div>
+      <div class="s">TB ban đêm<b>${fmt(tbDem)} m³</b></div>
+      <div class="s">Tỷ lệ ngày/24h<b>${tyle!=null?tyle+'%':'–'}</b></div>
+      <div class="s">Ban ngày mới nhất<b>${fmt(lastNtday.ntday)} m³</b></div>
+    </div>`;
+
+  document.getElementById('app').innerHTML=`
+    ${todaybar}
+    ${kpiHTML}
+    <div class="grid">
+      <div class="card full">
+        <h2>📈 Xu hướng · 30 ngày gần nhất <span class="tag">cố định · đỏ=${NT_MAX_WEEK} · cam=${NT_MAX_WEEKEND}</span></h2>
+        <canvas id="cTrend"></canvas>
+      </div>
+      <div class="card full">
+        <h2>⚖️ So sánh 24h: Nước cấp vs Nước thải <span class="tag">theo bộ lọc</span></h2>
+        ${s24}
+        <canvas id="cCompare"></canvas>
+      </div>
+      <div class="card full">
+        <h2>☀️ Ban ngày 7h30–17h30 <span class="tag">Ban ngày + Đêm = 24h</span></h2>
+        ${sDay}
+        <canvas id="cDayStack"></canvas>
+      </div>
+      <div class="card">
+        <h2>🔀 Hệ 220 và Hệ 600</h2>
+        <canvas id="cHe"></canvas>
+      </div>
+      <div class="card">
+        <h2>🌗 Ban ngày vs Ban đêm <span class="tag">nước thải</span></h2>
+        <canvas id="cDayNight"></canvas>
+      </div>
+      <div class="card">
+        <h2>📅 Nước thải · 4 tuần gần nhất <span class="tag">theo thứ T2→CN</span></h2>
+        <canvas id="cWk4nt"></canvas>
+      </div>
+      <div class="card">
+        <h2>📅 Nước cấp · 4 tuần gần nhất <span class="tag">theo thứ T2→CN</span></h2>
+        <canvas id="cWk4cap"></canvas>
+      </div>
+      <div class="card">
+        <h2>📆 So sánh theo tuần <span class="tag">TB nước thải/ngày</span></h2>
+        <canvas id="cByWeek"></canvas>
+      </div>
+      <div class="card">
+        <h2>🅰️🅱️ Nước cấp Khu A / Khu B & Thất thoát <span class="tag">theo ngày</span></h2>
+        <canvas id="cKhuAB"></canvas>
+      </div>
+      <div class="card full">
+        <h2>🚨 Bảng cảnh báo & dữ liệu <span class="tag">${alerts.length} cảnh báo</span></h2>
+        <div class="tbl-wrap"><table>
+          <thead><tr><th>Ngày</th><th>Thứ</th><th>NThải 24h</th><th>NThải ngày</th><th>Đêm</th><th>Hệ 600 24h</th><th>Hệ 600 ngày</th><th>Hệ 220 24h</th><th>Hệ 220 ngày</th><th>Cấp 24h</th><th>Cấp ngày</th><th>Thất thoát B</th><th>Chênh</th><th>Tình trạng</th></tr></thead>
+          <tbody>${tableRows(recs)}</tbody>
+        </table></div>
+      </div>
+    </div>`;
+  drawCharts(valid);
+}
+
+function kpiClass(v,max){ if(v==null) return ''; if(v<0) return 'bad'; if(v>max) return 'bad'; if(v>max*0.92) return 'warn'; return 'ok'; }
+function badge(cb){ if(!cb||cb.includes('OK')) return '<span class="badge b-ok">✅ OK</span>'; if(cb.includes('🟠')) return '<span class="badge b-warn">'+cb+'</span>'; return '<span class="badge b-bad">'+cb+'</span>'; }
+function rowClass(cb){ if(!cb||cb.includes('OK')) return ''; if(cb.includes('🟠')) return 'row-warn'; return 'row-bad'; }
+function tableRows(recs){
+  return recs.slice().reverse().map(d=>`
+    <tr class="${rowClass(d.cb)}">
+      <td>${d.ngay}</td><td>${d.thu}</td><td>${fmt(d.llnt)}</td><td>${fmt(d.ntday)}</td><td>${fmt(d.lldem)}</td>
+      <td>${fmt(d.ll600)}</td><td>${fmt(d.he600day)}</td><td>${fmt(d.ll220)}</td><td>${fmt(d.he220day)}</td><td>${fmt(d.llcap)}</td><td>${fmt(d.capday)}</td><td>${fmt(d.thatthoatB)}</td><td>${fmt(d.chenh)}</td>
+      <td style="text-align:left">${badge(d.cb)}</td>
+    </tr>`).join('');
+}
+
+function drawCharts(d){
+  Object.values(charts).forEach(c=>c&&c.destroy());
+  const grid={color:'#334155'}, tick={color:'#94a3b8',font:{size:10}};
+  const opt={responsive:true,maintainAspectRatio:false,interaction:{intersect:false,mode:'index'},
+    plugins:{legend:{labels:{color:'#e2e8f0',font:{size:11},boxWidth:12}}},
+    scales:{x:{grid,ticks:{...tick,maxTicksLimit:10}},y:{grid,ticks:tick,beginAtZero:false}}};
+
+  // --- Xu hướng: CỐ ĐỊNH 30 ngày cuối (độc lập bộ lọc) ---
+  var t30=ALL_RECS.filter(x=>x.llnt!=null).slice(-30);
+  var t30lab=t30.map(x=>x.ngay);
+  charts.trend=new Chart(document.getElementById('cTrend'),{type:'line',data:{labels:t30lab,datasets:[
+    {label:'Nước thải 24h',data:t30.map(x=>x.llnt),borderColor:'#38bdf8',backgroundColor:'rgba(56,189,248,.1)',fill:true,tension:.3,pointRadius:0,borderWidth:2},
+    {label:'Nước cấp A+B',data:t30.map(x=>x.llcap),borderColor:'#a78bfa',backgroundColor:'transparent',tension:.3,pointRadius:0,borderWidth:2},
+    {label:'Ngưỡng ' + NT_MAX_WEEK,data:t30.map(()=>NT_MAX_WEEK),borderColor:'#ef4444',borderDash:[6,4],pointRadius:0,borderWidth:1.5},
+    {label:'Cuối tuần ' + NT_MAX_WEEKEND,data:t30.map(()=>NT_MAX_WEEKEND),borderColor:'#f59e0b',borderDash:[4,4],pointRadius:0,borderWidth:1.5}
+  ]},options:opt});
+
+  const labels=d.map(x=>x.ngay);
+
+  // --- So sánh 24h: line, cấp chồng thải (theo bộ lọc) ---
+  charts.compare=new Chart(document.getElementById('cCompare'),{type:'line',data:{labels,datasets:[
+    {label:'Nước cấp A+B',data:d.map(x=>x.llcap),borderColor:'#a78bfa',backgroundColor:'rgba(167,139,250,.08)',fill:true,tension:.3,pointRadius:0,borderWidth:2},
+    {label:'Nước thải 24h',data:d.map(x=>x.llnt),borderColor:'#38bdf8',backgroundColor:'rgba(56,189,248,.08)',fill:true,tension:.3,pointRadius:0,borderWidth:2}
+  ]},options:opt});
+
+  // --- Ban ngày: cột chồng (ban ngày + đêm) + đường tổng 24h ---
+  var dd=d.filter(x=>x.ntday!=null);
+  var ddlab=dd.map(x=>x.ngay);
+  var stackOpt=Object.assign({},opt,{scales:{x:{grid,ticks:{...tick,maxTicksLimit:12},stacked:true},y:{grid,ticks:tick,beginAtZero:true,stacked:true}}});
+  charts.dayStack=new Chart(document.getElementById('cDayStack'),{type:'bar',data:{labels:ddlab,datasets:[
+    {label:'Ban ngày (7h30-17h30)',data:dd.map(x=>x.ntday),backgroundColor:'#fbbf24',stack:'s'},
+    {label:'Ban đêm (17h30-7h30)',data:dd.map(x=>x.lldem),backgroundColor:'#6366f1',stack:'s'},
+    {type:'line',label:'Tổng 24h',data:dd.map(x=>x.llnt),borderColor:'#38bdf8',pointRadius:0,borderWidth:2,tension:.3}
+  ]},options:stackOpt});
+
+  charts.he=new Chart(document.getElementById('cHe'),{type:'line',data:{labels,datasets:[
+    {label:'Tổng 600+220',data:d.map(x=>(x.ll600!=null&&x.ll220!=null)?x.ll600+x.ll220:null),borderColor:'#38bdf8',pointRadius:0,borderWidth:2.5,tension:.3,spanGaps:true},
+    {label:'Hệ 600',data:d.map(x=>x.ll600),borderColor:'#22c55e',pointRadius:0,borderWidth:2,tension:.3},
+    {label:'Hệ 220',data:d.map(x=>x.ll220),borderColor:'#fbbf24',pointRadius:0,borderWidth:2,tension:.3},
+    {label:'Hệ 600 max ('+HE600_MAX+')',data:d.map(()=>HE600_MAX),borderColor:'#22c55e',borderDash:[4,4],pointRadius:0,borderWidth:1},
+    {label:'Hệ 220 max ('+HE220_MAX+')',data:d.map(()=>HE220_MAX),borderColor:'#fbbf24',borderDash:[4,4],pointRadius:0,borderWidth:1}
+  ]},options:opt});
+
+  charts.dayNight=new Chart(document.getElementById('cDayNight'),{type:'line',data:{labels:ddlab,datasets:[
+    {label:'Tổng 24h',data:dd.map(x=>x.llnt),borderColor:'#38bdf8',pointRadius:0,borderWidth:2.5,tension:.3,spanGaps:true},
+    {label:'Ban ngày',data:dd.map(x=>x.ntday),borderColor:'#fbbf24',pointRadius:0,borderWidth:2,tension:.3,spanGaps:true},
+    {label:'Ban đêm',data:dd.map(x=>x.lldem),borderColor:'#6366f1',pointRadius:0,borderWidth:2,tension:.3,spanGaps:true}
+  ]},options:opt});
+
+  function build4Weeks(field){
+    var dowOrder=['T2','T3','T4','T5','T6','T7','CN'];
+    var byWk={};
+    d.forEach(function(x){
+      if(x[field]==null||!x.iso) return;
+      var dt=new Date(x.iso);
+      var onejan=new Date(dt.getFullYear(),0,1);
+      var wk=Math.ceil((((dt-onejan)/86400000)+onejan.getDay()+1)/7);
+      var key=dt.getFullYear()+'-T'+String(wk).padStart(2,'0');
+      if(!byWk[key]) byWk[key]={};
+      byWk[key][x.thu]=x[field];
+    });
+    var keys=Object.keys(byWk).sort().slice(-4);
+    var palette=['#64748b','#a78bfa','#22c55e','#38bdf8'];
+    var datasets=keys.map(function(k,i){
+      var isLast=(i===keys.length-1);
+      return {label:'Tuần '+k.split('-T')[1]+(isLast?' (mới nhất)':''),
+        data:dowOrder.map(function(t){ return byWk[k][t]!=null?byWk[k][t]:null; }),
+        borderColor:palette[i],backgroundColor:'transparent',borderWidth:isLast?3:1.5,pointRadius:isLast?4:2,tension:.3,spanGaps:true};
+    });
+    return {labels:dowOrder, datasets:datasets};
+  }
+  charts.wk4nt=new Chart(document.getElementById('cWk4nt'),{type:'line',data:build4Weeks('llnt'),options:opt});
+  charts.wk4cap=new Chart(document.getElementById('cWk4cap'),{type:'line',data:build4Weeks('llcap'),options:opt});
+
+  var weeks={};
+  d.forEach(function(x){
+    if(x.llnt==null||!x.iso) return;
+    var dt=new Date(x.iso);
+    var onejan=new Date(dt.getFullYear(),0,1);
+    var wk=Math.ceil((((dt-onejan)/86400000)+onejan.getDay()+1)/7);
+    var key=dt.getFullYear()+'-T'+String(wk).padStart(2,'0');
+    if(!weeks[key]) weeks[key]={sum:0,cnt:0};
+    weeks[key].sum+=x.llnt; weeks[key].cnt++;
+  });
+  var wkKeys=Object.keys(weeks).sort();
+  var wkAvg=wkKeys.map(function(k){ return Math.round(weeks[k].sum/weeks[k].cnt); });
+  charts.byWeek=new Chart(document.getElementById('cByWeek'),{type:'line',data:{labels:wkKeys,datasets:[
+    {label:'TB nước thải/ngày',data:wkAvg,borderColor:'#a78bfa',backgroundColor:'rgba(167,139,250,.12)',fill:true,tension:.3,pointRadius:3,borderWidth:2}
+  ]},options:Object.assign({},opt,{scales:{x:{grid:grid,ticks:Object.assign({},tick,{maxTicksLimit:12})},y:{grid:grid,ticks:tick,beginAtZero:false}}})});
+
+  var abData=d.filter(x=>x.llcapA!=null||x.llcapB!=null||x.thatthoatB!=null);
+  var abLab=abData.map(x=>x.ngay);
+  charts.khuAB=new Chart(document.getElementById('cKhuAB'),{type:'line',data:{labels:abLab,datasets:[
+    {label:'Tổng A+B',data:abData.map(x=>x.llcap),borderColor:'#22c55e',backgroundColor:'transparent',pointRadius:0,borderWidth:2.5,tension:.3,spanGaps:true},
+    {label:'LL Cấp A',data:abData.map(x=>x.llcapA),borderColor:'#38bdf8',pointRadius:0,borderWidth:2,tension:.3,spanGaps:true},
+    {label:'LL Cấp B',data:abData.map(x=>x.llcapB),borderColor:'#a78bfa',pointRadius:0,borderWidth:2,tension:.3,spanGaps:true},
+    {label:'Thất thoát Khu B',data:abData.map(x=>x.thatthoatB),borderColor:'#ef4444',backgroundColor:'rgba(239,68,68,.08)',fill:true,pointRadius:0,borderWidth:2,tension:.3,spanGaps:true}
+  ]},options:opt});
+}
+
+function setupExportDates(recs){
+  var withDate=recs.filter(function(x){return x.iso});
+  if(!withDate.length) return;
+  var from=document.getElementById('dFrom'), to=document.getElementById('dTo');
+  if(from && !from.value) from.value=withDate[0].iso;
+  if(to && !to.value) to.value=withDate[withDate.length-1].iso;
+  updateExportCount();
+}
+function getExportRows(weekdayOnly){
+  var from=document.getElementById('dFrom').value, to=document.getElementById('dTo').value;
+  return ALL_RECS.filter(function(x){
+    if(!x.iso) return false;
+    if(from && x.iso<from) return false;
+    if(to && x.iso>to) return false;
+    if(weekdayOnly && (x.thu==='T7'||x.thu==='CN')) return false;
+    return true;
+  });
+}
+function updateExportCount(){
+  var n=getExportRows().length;
+  var el=document.getElementById('exportCnt');
+  if(el) el.textContent=n+' ngày được chọn';
+}
+function exportExcel(weekdayOnly){
+  var rows=getExportRows(weekdayOnly===true);
+  if(!rows.length){ alert('Không có dữ liệu trong khoảng ngày đã chọn.'); return; }
+  // Sheet 1: bảng dữ liệu
+  var header=['Ngày','Thứ','NThải 24h','NThải ngày','Đêm','Hệ 600 24h','Hệ 600 ngày','Hệ 220 24h','Hệ 220 ngày','Cấp 24h','Cấp ngày','Thất thoát B','Chênh lệch','Cảnh báo'];
+  var body=rows.map(function(d){
+    return [d.ngay,d.thu,d.llnt,d.ntday,d.lldem,d.ll600,d.he600day,d.ll220,d.he220day,d.llcap,d.capday,d.thatthoatB,d.chenh,d.cb];
+  });
+  var ws1=XLSX.utils.aoa_to_sheet([header].concat(body));
+  ws1['!cols']=[{wch:12},{wch:6},{wch:10},{wch:10},{wch:8},{wch:10},{wch:10},{wch:10},{wch:10},{wch:9},{wch:9},{wch:11},{wch:10},{wch:40}];
+
+  // Sheet 2: tóm tắt thống kê
+  function stats(field){
+    var vals=rows.map(function(d){return d[field]}).filter(function(v){return v!=null});
+    if(!vals.length) return {tb:'',max:'',min:''};
+    var sum=vals.reduce(function(a,b){return a+b},0);
+    return {tb:Math.round(sum/vals.length),max:Math.max.apply(null,vals),min:Math.min.apply(null,vals)};
+  }
+  var fields=[['Nước thải 24h','llnt'],['Nước thải ban ngày','ntday'],['Nước thải đêm','lldem'],['Hệ 600','ll600'],['Hệ 220','ll220'],['Nước cấp A+B','llcap'],['Chênh lệch Cấp−Thải','chenh']];
+  var alerts=rows.filter(function(d){return d.cb&&!d.cb.includes('OK')&&d.cb.indexOf('Chưa đủ')<0&&d.cb!==''});
+  var sumData=[['TÓM TẮT THỐNG KÊ'],['Khoảng ngày:',rows[0].ngay+' → '+rows[rows.length-1].ngay],['Số ngày:',rows.length],['Số ngày cảnh báo:',alerts.length],[''],['Chỉ tiêu','Trung bình','Lớn nhất','Nhỏ nhất']];
+  fields.forEach(function(f){ var s=stats(f[1]); sumData.push([f[0],s.tb,s.max,s.min]); });
+  sumData.push(['']);
+  sumData.push(['DANH SÁCH NGÀY CẢNH BÁO']);
+  sumData.push(['Ngày','Thứ','Nội dung cảnh báo']);
+  alerts.forEach(function(d){ sumData.push([d.ngay,d.thu,d.cb]); });
+  var ws2=XLSX.utils.aoa_to_sheet(sumData);
+  ws2['!cols']=[{wch:22},{wch:14},{wch:42}];
+
+  var wb=XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb,ws2,'Tóm tắt');
+  XLSX.utils.book_append_sheet(wb,ws1,'Dữ liệu');
+  var fname='UMC_NuocThai_'+(weekdayOnly===true?'T2-T6_':'')+(document.getElementById('dFrom').value||'')+'_'+(document.getElementById('dTo').value||'')+'.xlsx';
+  XLSX.writeFile(wb,fname);
+}
+document.getElementById('btnExport').addEventListener('click',function(){exportExcel(false);});
+document.getElementById('btnExportWd').addEventListener('click',function(){exportExcel(true);});
+document.getElementById('dFrom').addEventListener('change',updateExportCount);
+document.getElementById('dTo').addEventListener('change',updateExportCount);
+document.getElementById('filter').addEventListener('click',function(e){
+  if(!e.target.classList.contains('chip')) return;
+  document.querySelectorAll('.chip').forEach(function(c){c.classList.remove('on')});
+  e.target.classList.add('on');
+  curRange=e.target.dataset.r;
+  if(ALL_RECS.length) renderView();
+});
+
+document.getElementById('reload').addEventListener('click',load);
+load();
+setInterval(load,5*60*1000);
+</script>
+</body>
+</html>

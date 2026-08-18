@@ -1,0 +1,15 @@
+.env
+.env.local
+.env.*.local
+*.pem
+node_modules
+dist
+.output
+.vinxi
+.nitro
+.tanstack
+screenshots
+*.log
+.tsc-out.txt
+.DS_Store
+.vercel
