@@ -90,13 +90,6 @@ export const authConfigured =
 // it derives the origin per-request from the (proxied) host, validated against the
 // preview allowlist, which makes the OAuth `redirect_uri` the concrete preview URL
 // the broker's preview client accepts.
-const explicitBaseURL = env("BETTER_AUTH_URL");
-// Explicit `string[]` (not a readonly tuple) — Better Auth's DynamicBaseURLConfig
-// requires a mutable `allowedHosts: string[]`.
-const previewAllowedHosts: string[] = [...PREVIEW_ALLOWED_HOSTS];
-// Local `npm run dev` (port 8080 contract). Browsers may send Origin as any of
-// these for the same server — trusting only `localhost` rejects `127.0.0.1` and
-// breaks email/password with "Invalid origin".
 const LOCAL_DEV_ORIGINS: string[] = [
   "http://localhost:8080",
   "http://127.0.0.1:8080",
@@ -104,9 +97,42 @@ const LOCAL_DEV_ORIGINS: string[] = [
   "http://localhost:3000",
   "http://127.0.0.1:3000",
 ];
-const baseURL = explicitBaseURL ?? {
-  // Include loopback hosts so dynamic baseURL resolves for local email/password
-  // (not only the preview wildcard).
+
+const PROD_ORIGIN = "https://umc-xlnt-dashboard02.vercel.app";
+
+function httpsOrigin(raw?: string): string | undefined {
+  if (!raw) return undefined;
+  const t = raw.trim().replace(/\/$/, "");
+  if (!t) return undefined;
+  if (t.startsWith("https://") || t.startsWith("http://")) return t;
+  return `https://${t}`;
+}
+
+function csvOrigins(raw?: string): string[] {
+  if (!raw) return [];
+  return raw
+    .split(/[\s,]+/)
+    .map((s) => httpsOrigin(s))
+    .filter((s): s is string => Boolean(s));
+}
+
+const vercelRuntimeOrigin = httpsOrigin(env("VERCEL_URL"));
+const vercelProdOrigin = httpsOrigin(env("VERCEL_PROJECT_PRODUCTION_URL"));
+const explicitBaseURL = httpsOrigin(env("BETTER_AUTH_URL"));
+
+const onVercelHost = Boolean(
+  env("VERCEL") ||
+    vercelRuntimeOrigin?.includes("vercel.app") ||
+    vercelProdOrigin?.includes("vercel.app") ||
+    explicitBaseURL?.includes("vercel.app"),
+);
+
+// Production origin first so CSRF matches the URL users actually open.
+const resolvedBaseURL =
+  explicitBaseURL ?? (onVercelHost ? (vercelRuntimeOrigin ?? vercelProdOrigin) : undefined);
+
+const previewAllowedHosts: string[] = [...PREVIEW_ALLOWED_HOSTS];
+const baseURL = resolvedBaseURL ?? {
   allowedHosts: [
     ...previewAllowedHosts,
     "localhost",
@@ -114,9 +140,8 @@ const baseURL = explicitBaseURL ?? {
     "[::1]",
     "*.vercel.app",
     "*.trycloudflare.com",
+    "umc-xlnt-dashboard02.vercel.app",
   ],
-  // `auto` → trust both http:// and https:// expansions of allowedHosts
-  // (preview is https; local dev is http).
   protocol: "auto" as const,
   fallback: "http://localhost:8080",
 };
@@ -126,22 +151,23 @@ function isLoopbackHostname(hostname: string) {
 }
 
 /**
- * CSRF: cho phép origin cùng host với request (LAN / Cursor / Cloudflare),
- * cộng loopback mọi cổng. Không tắt kiểm tra origin.
+ * CSRF: origin phải khớp Origin header (https://umc-xlnt-dashboard02.vercel.app).
+ * Wildcard `*.vercel.app` không thay được URL đầy đủ — đó là nguyên nhân 403 Invalid origin.
  */
 const trustedOrigins = async (request?: Request): Promise<string[]> => {
   const extra: string[] = [
+    PROD_ORIGIN,
     ...previewAllowedHosts,
     ...previewAllowedHosts.flatMap((host) => [`https://${host}`, `http://${host}`]),
     ...LOCAL_DEV_ORIGINS,
     "*.vercel.app",
     "*.trycloudflare.com",
   ];
-  const listed = env("TRUSTED_ORIGINS");
-  if (listed) extra.push(...listed.split(/[\s,]+/).filter(Boolean));
-  const vercel = env("VERCEL_URL")?.replace(/^https?:\/\//, "");
-  if (vercel) extra.push(`https://${vercel}`);
-  if (explicitBaseURL) extra.push(explicitBaseURL.replace(/\/$/, ""));
+  if (vercelRuntimeOrigin) extra.push(vercelRuntimeOrigin);
+  if (vercelProdOrigin) extra.push(vercelProdOrigin);
+  if (explicitBaseURL) extra.push(explicitBaseURL);
+  extra.push(...csvOrigins(env("AUTH_TRUSTED_ORIGIN")));
+  extra.push(...csvOrigins(env("TRUSTED_ORIGINS")));
   if (!request) return extra;
   const headerOrigin = request.headers.get("origin") || "";
   if (!headerOrigin || headerOrigin === "null") return extra;
@@ -178,8 +204,9 @@ const database = databaseUrl
   ? new Pool({ connectionString: databaseUrl })
   : { dialect: pgliteDialect(() => getPglite()), type: "postgres" as const };
 
+const COOKIE_NS = onVercelHost ? "umc-auth" : "__Host-grok-auth";
 /** Session token cookie name — also read by the live-preview popup completion page. */
-export const SESSION_TOKEN_COOKIE = "__Host-grok-auth.session_token";
+export const SESSION_TOKEN_COOKIE = `${COOKIE_NS}.session_token`;
 
 // Built separately so the `betterAuth({...})` call stays easy to edit without
 // breaking brackets (models often trip on the conditional plugin spread).
@@ -272,9 +299,9 @@ export const auth = betterAuth({
     defaultCookieAttributes: { secure: true, sameSite: "lax", path: "/" },
     cookies: {
       session_token: { name: SESSION_TOKEN_COOKIE },
-      session_data: { name: "__Host-grok-auth.session_data" },
-      account_data: { name: "__Host-grok-auth.account_data" },
-      dont_remember: { name: "__Host-grok-auth.dont_remember" },
+      session_data: { name: `${COOKIE_NS}.session_data` },
+      account_data: { name: `${COOKIE_NS}.account_data` },
+      dont_remember: { name: `${COOKIE_NS}.dont_remember` },
     },
   },
 

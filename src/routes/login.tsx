@@ -1,31 +1,40 @@
 import { useEffect, useState } from "react";
 import { createFileRoute, Navigate } from "@tanstack/react-router";
-import { authClient, authEnabled, signInGoogle } from "@/lib/auth/client";
+import { Droplets, Eye, EyeOff } from "lucide-react";
+import { authClient, authEnabled } from "@/lib/auth/client";
 import { getLoginFlagsFn } from "@/lib/auth/login-flags";
 import { useCurrentUserState } from "@/lib/auth/use-current-user";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Droplets } from "lucide-react";
 
 export const Route = createFileRoute("/login")({ component: Login });
 
-function loginErrorVi(raw: string): string {
-  const m = raw.toLowerCase();
-  if (m.includes("invalid origin")) {
-    return "Trình duyệt gửi sai origin. Tải lại trang rồi thử lại.";
+function grokSandboxHost() {
+  return typeof window !== "undefined" && window.location.hostname.endsWith(".grok-sandbox.com");
+}
+
+function vercelHost() {
+  return typeof window !== "undefined" && window.location.hostname.endsWith(".vercel.app");
+}
+
+function authErrorText(error: unknown): string {
+  const rec = error && typeof error === "object" ? (error as Record<string, unknown>) : {};
+  const status = rec.status ?? rec.statusCode;
+  const code = typeof rec.code === "string" ? rec.code : "";
+  const message = String(rec.message ?? (error instanceof Error ? error.message : "")).trim();
+  const raw = [status, code, message].filter((p) => p !== undefined && p !== "").join(" · ");
+  const m = message.toLowerCase();
+  const codeL = code.toLowerCase();
+
+  if (m.includes("invalid origin") || codeL === "invalid_origin") {
+    return `${raw || "403 · INVALID_ORIGIN"}\nOrigin chưa được tin. Đặt BETTER_AUTH_URL=https://umc-xlnt-dashboard02.vercel.app`;
   }
-  if (m.includes("redirect_uri") || m.includes("redirect uri")) {
-    return "Google Cloud chưa khai redirect: http://localhost:8080/api/auth/callback/google";
+  if (m.includes("already exists") || m.includes("user already") || codeL.includes("user_already")) {
+    return `${raw}\nEmail này đã có tài khoản. Bấm Đăng nhập.`;
   }
-  if (m.includes("invalid_client") || m.includes("client id") || m.includes("client_id")) {
-    return "GOOGLE_CLIENT_ID / GOOGLE_CLIENT_SECRET chưa đúng. Tạo OAuth Client loại Web trên Google Cloud (không dùng service account).";
-  }
-  if (
-    m.includes("provider") &&
-    (m.includes("not found") || m.includes("not configured") || m.includes("disabled"))
-  ) {
-    return "Chưa gắn Google OAuth. Thêm GOOGLE_CLIENT_ID và GOOGLE_CLIENT_SECRET vào môi trường máy chủ, rồi restart.";
+  if (m.includes("too short") || (m.includes("password") && m.includes("8")) || codeL.includes("password")) {
+    return `${raw || "Mật khẩu tối thiểu 8 ký tự."}\nMật khẩu tối thiểu 8 ký tự.`;
   }
   if (
     m.includes("invalid email") ||
@@ -33,15 +42,45 @@ function loginErrorVi(raw: string): string {
     m.includes("invalid_email_or_password") ||
     m.includes("invalid credentials")
   ) {
-    return "Sai email hoặc mật khẩu. Email Gmail bệnh viện dùng nút Google phía trên — không gõ mật khẩu Gmail vào đây. Tài khoản mật khẩu phải bấm «Đăng ký» lần đầu (tối thiểu 8 ký tự).";
+    return `${raw}\nSai email hoặc mật khẩu. Lần đầu: bấm Đăng ký (email có dấu chấm miền, ví dụ msn@admin.local).`;
   }
-  if (m.includes("already exists") || m.includes("user already")) {
-    return "Email này đã có tài khoản. Bấm Đăng nhập, hoặc «Tiếp tục với Google» nếu đã từng vào bằng Google.";
+  if (m.includes("database") || m.includes("econnrefused") || m.includes("connect")) {
+    return `${raw}\nLỗi cơ sở dữ liệu. Kiểm tra DATABASE_URL (Postgres) trên Vercel.`;
   }
-  if (m.includes("too short") || (m.includes("password") && m.includes("8"))) {
-    return "Mật khẩu tối thiểu 8 ký tự.";
-  }
-  return raw.trim() || "Không đăng nhập được.";
+  return raw || "Không đăng nhập được.";
+}
+
+function PasswordField({
+  value,
+  onChange,
+  autoComplete,
+}: {
+  value: string;
+  onChange: (v: string) => void;
+  autoComplete: string;
+}) {
+  const [show, setShow] = useState(false);
+  return (
+    <div className="relative">
+      <Input
+        className="mt-1 pr-12"
+        type={show ? "text" : "password"}
+        required
+        minLength={8}
+        autoComplete={autoComplete}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+      />
+      <button
+        type="button"
+        className="absolute right-0 top-1 grid size-11 min-h-11 min-w-11 place-items-center text-muted hover:text-accent"
+        aria-label={show ? "Ẩn mật khẩu" : "Hiện mật khẩu"}
+        onClick={() => setShow((s) => !s)}
+      >
+        {show ? <EyeOff className="size-4" strokeWidth={1.75} /> : <Eye className="size-4" strokeWidth={1.75} />}
+      </button>
+    </div>
+  );
 }
 
 function Login() {
@@ -52,15 +91,14 @@ function Login() {
   const [mode, setMode] = useState<"in" | "up">("in");
   const [err, setErr] = useState("");
   const [busy, setBusy] = useState(false);
-  const [googleReady, setGoogleReady] = useState<boolean | null>(null);
+  const [database, setDatabase] = useState<boolean | null>(null);
+  const showBroker = grokSandboxHost();
+  const showDbWarn = vercelHost() && database === false;
 
   useEffect(() => {
     void getLoginFlagsFn()
-      .then((f) => setGoogleReady(f.google))
-      .catch(() => setGoogleReady(false));
-    if (typeof window !== "undefined" && new URLSearchParams(window.location.search).get("error") === "google") {
-      setErr("Google từ chối đăng nhập. Kiểm tra OAuth Web client và redirect URI.");
-    }
+      .then((f) => setDatabase(f.database))
+      .catch(() => setDatabase(false));
   }, []);
 
   if (!isPending && user) return <Navigate to="/app/theodoi" />;
@@ -77,63 +115,52 @@ function Login() {
           password,
           name: name.trim() || trimmed.split("@")[0] || "Ca trực",
         });
-        if (error) throw new Error(error.message);
+        if (error) throw error;
       } else {
         const { error } = await authClient.signIn.email({
           email: trimmed,
           password,
           rememberMe: true,
         });
-        if (error) throw new Error(error.message);
+        if (error) throw error;
       }
       window.location.href = "/app/theodoi";
     } catch (ex) {
-      setErr(loginErrorVi(ex instanceof Error ? ex.message : ""));
+      setErr(authErrorText(ex));
     } finally {
-      setBusy(false);
-    }
-  }
-
-  async function onGoogle() {
-    setErr("");
-    setBusy(true);
-    try {
-      if (googleReady === false) {
-        throw new Error(
-          "Chưa gắn Google OAuth. Tạo Client ID loại Ứng dụng web trên Google Cloud, khai redirect http://localhost:8080/api/auth/callback/google, rồi đặt GOOGLE_CLIENT_ID và GOOGLE_CLIENT_SECRET.",
-        );
-      }
-      await signInGoogle({ callbackURL: "/app/theodoi" });
-    } catch (ex) {
-      setErr(loginErrorVi(ex instanceof Error ? ex.message : ""));
       setBusy(false);
     }
   }
 
   return (
     <main className="min-h-dvh bg-bg text-fg lg:grid lg:grid-cols-2">
-      <section className="relative hidden min-h-dvh overflow-hidden lg:block">
-        <img src="/plant-dusk.jpg" alt="" className="absolute inset-0 size-full object-cover" />
-        <div className="absolute inset-0 bg-bg/75" />
-        <div className="relative flex h-full flex-col justify-end p-12">
-          <p className="text-xs font-medium uppercase tracking-[0.18em] text-accent">
-            820 m³/ngày · QCVN 28:2010 cột B
-          </p>
-          <h1 className="mt-3 max-w-md text-3xl font-medium tracking-tight text-fg">
-            Trạm xử lý nước thải
-            <span className="mt-1 block text-muted">Bệnh viện Đại học Y Dược TP.HCM</span>
-          </h1>
-          <p className="mt-4 max-w-sm text-sm text-muted">
-            Hai hệ 600 và 220 · nhà thầu Đại Nam · vận hành 7h–18h kể cả lễ Tết.
-          </p>
+      <section className="relative hidden min-h-dvh overflow-hidden bg-mint lg:flex lg:flex-col lg:justify-end lg:p-12">
+        <div className="mb-auto flex items-center gap-3 pt-2">
+          <span className="icon-mint size-12 text-accent">
+            <Droplets className="size-5" strokeWidth={1.75} />
+          </span>
+          <div>
+            <div className="text-sm font-semibold tracking-tight">UMC · XLNT</div>
+            <div className="text-xs text-muted">Hệ thống vận hành trạm</div>
+          </div>
         </div>
+        <p className="text-xs font-medium uppercase tracking-[0.18em] text-accent">
+          820 m³/ngày · QCVN 28:2010 cột B
+        </p>
+        <h1 className="mt-3 max-w-md text-3xl font-medium tracking-tight text-fg">
+          Trạm xử lý nước thải
+          <span className="mt-1 block text-muted">Bệnh viện Đại học Y Dược TP.HCM</span>
+        </h1>
+        <p className="mt-4 max-w-sm text-sm text-muted">
+          Hai hệ 600 và 220 · nhà thầu Đại Nam · vận hành 7h–18h kể cả lễ Tết.
+        </p>
       </section>
 
       <section className="flex min-h-dvh items-center justify-center px-5 py-12">
-        <div className="w-full max-w-sm">
-          <div className="mb-10">
-            <div className="flex items-center gap-3">
-              <span className="grid size-12 place-items-center rounded-sm bg-accent text-accent-fg shadow-panel">
+        <div className="w-full max-w-sm rounded-lg border border-border bg-surface p-6 shadow-panel sm:p-8">
+          <div className="mb-8">
+            <div className="flex items-center gap-3 lg:hidden">
+              <span className="icon-mint size-12">
                 <Droplets className="size-5" strokeWidth={1.75} />
               </span>
               <div>
@@ -150,43 +177,24 @@ function Login() {
             </div>
           </div>
 
-          <h2 className="text-2xl font-medium tracking-tight">Đăng nhập</h2>
+          <h2 className="text-2xl font-medium tracking-tight">{mode === "up" ? "Đăng ký" : "Đăng nhập"}</h2>
           <p className="mt-2 text-sm text-muted">
-            Nhân sự bệnh viện: Google (cần OAuth Web client). Hoặc đăng ký email nội bộ bên dưới — không dùng mật khẩu
-            Gmail.
+            Email nội bộ có dấu chấm miền (ví dụ msn@admin.local). Không dùng mật khẩu Gmail.
           </p>
 
-          <div className="mt-8 space-y-3">
-            {authEnabled ? (
-              <>
-                <Button
-                  type="button"
-                  variant="secondary"
-                  className="h-11 w-full justify-center"
-                  disabled={busy}
-                  onClick={() => void onGoogle()}
-                >
-                  {busy ? "Đang chuyển tới Google…" : "Tiếp tục với Google"}
-                </Button>
-                {googleReady === false ? (
-                  <p className="text-xs text-warn">
-                    Google chưa cấu hình trên máy này. Dùng Đăng ký email, hoặc thêm GOOGLE_CLIENT_ID +
-                    GOOGLE_CLIENT_SECRET (OAuth Web, không phải service account Sheet).
-                  </p>
-                ) : null}
-              </>
-            ) : (
-              <p className="text-sm text-muted">Đăng nhập đang tắt.</p>
-            )}
-          </div>
+          {showDbWarn ? (
+            <p className="mt-4 rounded-lg border border-bad/40 bg-bad/10 px-3 py-2 text-sm text-bad">
+              Chưa cấu hình DATABASE_URL — đăng ký / đăng nhập email trên Vercel cần Postgres (Neon).
+            </p>
+          ) : null}
 
-          <div className="my-6 flex items-center gap-3 text-[11px] uppercase tracking-wide text-dim">
-            <span className="h-px flex-1 bg-border" />
-            hoặc email
-            <span className="h-px flex-1 bg-border" />
-          </div>
+          {authEnabled && showBroker ? (
+            <p className="mt-4 text-xs text-dim">Google / X chỉ dùng trên máy xem trước Grok.</p>
+          ) : null}
 
-          <form className="space-y-3" onSubmit={onEmail}>
+          {!authEnabled ? <p className="mt-4 text-sm text-muted">Đăng nhập đang tắt.</p> : null}
+
+          <form className="mt-8 space-y-3" onSubmit={onEmail}>
             {mode === "up" ? (
               <div>
                 <Label>Họ tên</Label>
@@ -195,23 +203,28 @@ function Login() {
             ) : null}
             <div>
               <Label>Email</Label>
-              <Input className="mt-1" type="email" required value={email} onChange={(e) => setEmail(e.target.value)} />
+              <Input
+                className="mt-1"
+                type="email"
+                autoComplete="username"
+                required
+                placeholder="msn@admin.local"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+              />
+              <p className="mt-1 text-[11px] text-dim">Cần dấu chấm miền — msn@admin bị trình duyệt chặn.</p>
             </div>
             <div>
               <Label>Mật khẩu</Label>
-              <Input
-                className="mt-1"
-                type="password"
-                required
-                minLength={8}
-                autoComplete={mode === "up" ? "new-password" : "current-password"}
+              <PasswordField
                 value={password}
-                onChange={(e) => setPassword(e.target.value)}
+                onChange={setPassword}
+                autoComplete={mode === "up" ? "new-password" : "current-password"}
               />
-              <p className="mt-1 text-[11px] text-dim">Tối thiểu 8 ký tự. Lần đầu dùng form này: bấm Đăng ký.</p>
+              <p className="mt-1 text-[11px] text-dim">Tối thiểu 8 ký tự. Lần đầu: bấm Đăng ký.</p>
             </div>
-            {err ? <p className="text-sm text-bad">{err}</p> : null}
-            <Button type="submit" className="w-full" disabled={busy}>
+            {err ? <p className="whitespace-pre-line text-sm text-bad">{err}</p> : null}
+            <Button type="submit" className="w-full" disabled={busy || !authEnabled}>
               {busy ? "Đang xử lý…" : mode === "up" ? "Tạo tài khoản" : "Đăng nhập email"}
             </Button>
             <button

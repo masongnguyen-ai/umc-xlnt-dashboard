@@ -40,6 +40,17 @@ export const CHECKLIST_ITEMS: ChecklistItem[] = [
 
 export const SEED_USERS: AppUserRecord[] = [
   {
+    User_ID: "UMC-USR-MSN-ADMIN",
+    Email: "msn@admin.local",
+    Ho_ten: "Mà Song Nguyễn",
+    So_dien_thoai: "",
+    Don_vi: "Ban Giám Đốc",
+    Ghi_chu: "Tài khoản quản lý — đăng ký / đăng nhập email (msn@admin.local)",
+    Vai_tro: "QUAN_LY",
+    Trang_thai: "HOAT_DONG",
+    Ngay_tao: "2026-08-19",
+  },
+  {
     User_ID: "UMC-USR-20260715-0001",
     Email: "masongnguyen@gmail.com",
     Ho_ten: "Mà Song Nguyễn",

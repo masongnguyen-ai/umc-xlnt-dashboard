@@ -42,6 +42,7 @@ export async function hydrateOpsFromServer() {
     return r;
   }
   const me = r;
+  useAppStore.getState().saveUser(me.staff);
   useAppStore.setState({ staffBlocked: null, sheetSync: me.sheet, opsReady: true });
 
   try {
