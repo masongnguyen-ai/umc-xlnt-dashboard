@@ -1,19 +1,36 @@
 import { createServerFn } from "@tanstack/react-start";
 import { authMiddleware } from "@/lib/auth/middleware";
-import type { AppUserRecord, ChemQty, ChemReceipt, ChemRestockStatus, ChemTx } from "@/lib/types";
-import type { ChemSnapshot, OpsState, SheetSyncInfo, StaffMe } from "./types";
+import type { AppUserRecord, ChemQty, ChemReceipt, ChemRestockStatus, ChemTx, Maintenance, OpLog } from "@/lib/types";
+import type { ChemSnapshot, OpsState, StaffMe } from "./types";
 
 export const getStaffMeFn = createServerFn({ method: "GET" })
   .middleware([authMiddleware])
   .handler(async ({ context }): Promise<StaffMe> => {
     const { resolveStaff, StaffBlockedError } = await import("./staff.server");
-    const { sheetConfigured, localSheetInfo } = await import("./sheet-bridge.server");
     try {
       const staff = await resolveStaff(context.userId);
-      const sheet: SheetSyncInfo = sheetConfigured()
-        ? { ok: true, mode: "webhook", tabs: ["CHEM_NHAP", "CHEM_LIEU", "CHEM_TON", "AUDIT_SO"] }
-        : localSheetInfo();
-      return { ok: true, staff, sheet };
+      try {
+        const { ensureOpsTabs } = await import("./ops-sheet.server");
+        const { OPS_SHEET_TABS } = await import("./types");
+        await ensureOpsTabs();
+        return {
+          ok: true as const,
+          staff,
+          sheet: { ok: true, mode: "sheets" as const, tabs: [...OPS_SHEET_TABS] },
+        };
+      } catch (err) {
+        const { OPS_SHEET_TABS } = await import("./types");
+        return {
+          ok: true as const,
+          staff,
+          sheet: {
+            ok: false,
+            mode: "sheets" as const,
+            tabs: [...OPS_SHEET_TABS],
+            error: err instanceof Error ? err.message : "Không kết nối được Sheet vận hành.",
+          },
+        };
+      }
     } catch (err) {
       if (err instanceof StaffBlockedError) return { ok: false, blocked: err.message };
       throw err;
@@ -25,15 +42,29 @@ export const getOpsStateFn = createServerFn({ method: "GET" })
   .handler(async ({ context }): Promise<OpsState> => {
     const { requireAction } = await import("./staff.server");
     const { loadOpsState } = await import("./chem.server");
-    const { sheetConfigured, localSheetInfo } = await import("./sheet-bridge.server");
+    const { loadOpsLedger } = await import("./ops-sheet.server");
     await requireAction(context.userId, "hoachat");
     const state = await loadOpsState();
-    return {
-      ...state,
-      sheet: sheetConfigured()
-        ? { ok: true, mode: "webhook", tabs: state.sheet.tabs }
-        : localSheetInfo(),
-    };
+    try {
+      const ledger = await loadOpsLedger();
+      return {
+        ...state,
+        confirms: ledger.confirms,
+        doses: ledger.doses,
+        restocks: ledger.restocks,
+        sheet: ledger.sheet,
+      };
+    } catch (err) {
+      return {
+        ...state,
+        sheet: {
+          ok: false,
+          mode: "sheets",
+          tabs: ["NHAT_KY", "HOA_CHAT_LIEU"],
+          error: err instanceof Error ? err.message : "Không đọc được Sheet vận hành.",
+        },
+      };
+    }
   });
 
 export const saveChemImportFn = createServerFn({ method: "POST" })
@@ -146,6 +177,7 @@ export const saveIncidentFn = createServerFn({ method: "POST" })
     const { requireAction } = await import("./staff.server");
     const { uid } = await import("@/lib/utils");
     const staff = await requireAction(context.userId, "write_thietbi");
+    const { persistIncidentServer } = await import("./ops-persist.server");
     const { uploadEvidencePhoto, appendIncidentRow } = await import("@/lib/google-drive");
     const { parseDriveFileId, driveViewUrl } = await import("@/lib/drive-tree");
     const photos: Array<{
@@ -179,24 +211,143 @@ export const saveIncidentFn = createServerFn({ method: "POST" })
       }
     }
     const links = photos.filter((p) => p.driveId).map((p) => p.url).join("\n");
-    let sheetOk = false;
-    let sheetError = "";
+    const persisted = await persistIncidentServer(context.userId, {
+      ...data.incident,
+      Anh: photos.filter((p) => p.driveId),
+    });
+    if (!persisted.ok) {
+      return {
+        ok: false as const,
+        error: persisted.error,
+        photos: photos.filter((p) => p.driveId),
+        driveOk,
+        driveError,
+        sheetOk: false,
+        sheetError: persisted.error,
+      };
+    }
     try {
       await appendIncidentRow({
         ...data.incident,
+        Incident_ID: persisted.rec.Incident_ID,
         Hinh_anh_links: links,
         Nguoi_tao: staff.Email,
       });
-      sheetOk = true;
-    } catch (err) {
-      sheetError = err instanceof Error ? err.message : String(err);
+    } catch {
+      /* tab EQP_INCIDENTS phụ — nguồn sự thật là SU_CO_TB */
     }
     return {
       ok: true as const,
+      rec: persisted.rec,
       photos: photos.filter((p) => p.driveId),
       driveOk,
       driveError,
-      sheetOk,
-      sheetError,
+      sheetOk: true,
+      sheetError: "",
+      sheet: persisted.sheet,
     };
   });
+
+export const getOpsLedgerFn = createServerFn({ method: "GET" })
+  .middleware([authMiddleware])
+  .handler(async ({ context }) => {
+    const { resolveStaff } = await import("./staff.server");
+    await resolveStaff(context.userId);
+    const { loadOpsLedger } = await import("./ops-sheet.server");
+    return loadOpsLedger();
+  });
+
+export const saveShiftLogFn = createServerFn({ method: "POST" })
+  .middleware([authMiddleware])
+  .validator((input: { log: OpLog; asDraft: boolean }) => input)
+  .handler(async ({ context, data }) => {
+    const { persistShiftLogServer } = await import("./ops-persist.server");
+    return persistShiftLogServer(context.userId, data);
+  });
+
+export const reviewShiftLogFn = createServerFn({ method: "POST" })
+  .middleware([authMiddleware])
+  .validator((input: { id: string; action: "CHOT" | "TRA_LAI" | "MO_LAI"; note: string }) => input)
+  .handler(async ({ context, data }) => {
+    const { reviewShiftLogServer } = await import("./ops-persist.server");
+    return reviewShiftLogServer(context.userId, data);
+  });
+
+export const saveOpsDoseFn = createServerFn({ method: "POST" })
+  .middleware([authMiddleware])
+  .validator((input: { iso: string; qty: ChemQty; note: string }) => input)
+  .handler(async ({ context, data }) => {
+    const { persistDoseServer } = await import("./ops-persist.server");
+    return persistDoseServer(context.userId, data);
+  });
+
+export const reviewOpsDoseFn = createServerFn({ method: "POST" })
+  .middleware([authMiddleware])
+  .validator((input: { iso: string; action: "CHOT" | "TRA_LAI" | "MO_LAI"; note: string }) => input)
+  .handler(async ({ context, data }) => {
+    const { reviewDoseServer } = await import("./ops-persist.server");
+    return reviewDoseServer(context.userId, data);
+  });
+
+export const saveOpsImportFn = createServerFn({ method: "POST" })
+  .middleware([authMiddleware])
+  .validator((input: { thang: string; receipts: ChemReceipt[]; note: string; submit: boolean }) => input)
+  .handler(async ({ context, data }) => {
+    const { persistImportServer } = await import("./ops-persist.server");
+    return persistImportServer(context.userId, data);
+  });
+
+export const reviewOpsImportFn = createServerFn({ method: "POST" })
+  .middleware([authMiddleware])
+  .validator((input: { thang: string; action: "CHOT" | "TRA_LAI"; note: string }) => input)
+  .handler(async ({ context, data }) => {
+    const { reviewImportServer } = await import("./ops-persist.server");
+    return reviewImportServer(context.userId, data);
+  });
+
+export const saveOpsRestockFn = createServerFn({ method: "POST" })
+  .middleware([authMiddleware])
+  .validator((input: { reason: string; qty: ChemQty }) => input)
+  .handler(async ({ context, data }) => {
+    const { persistRestockServer } = await import("./ops-persist.server");
+    return persistRestockServer(context.userId, data);
+  });
+
+export const reviewOpsRestockFn = createServerFn({ method: "POST" })
+  .middleware([authMiddleware])
+  .validator((input: { id: string; action: "CHOT" | "TRA_LAI"; note: string }) => input)
+  .handler(async ({ context, data }) => {
+    const { reviewRestockServer } = await import("./ops-persist.server");
+    return reviewRestockServer(context.userId, data);
+  });
+
+export const reviewOpsIncidentFn = createServerFn({ method: "POST" })
+  .middleware([authMiddleware])
+  .validator((input: { id: string; action: "CHOT" | "TRA_LAI"; note: string }) => input)
+  .handler(async ({ context, data }) => {
+    const { reviewIncidentServer } = await import("./ops-persist.server");
+    return reviewIncidentServer(context.userId, data);
+  });
+
+export const saveOpsMaintFn = createServerFn({ method: "POST" })
+  .middleware([authMiddleware])
+  .validator((input: Omit<Maintenance, "Maint_ID"> & { Maint_ID?: string }) => input)
+  .handler(async ({ context, data }) => {
+    const { persistMaintServer } = await import("./ops-persist.server");
+    return persistMaintServer(context.userId, data);
+  });
+
+export const logAuthEventFn = createServerFn({ method: "POST" })
+  .validator(
+    (input: {
+      email: string;
+      name: string;
+      role: string;
+      event: "DANG_NHAP" | "DANG_XUAT" | "DANG_KY" | "THAT_BAI";
+    }) => input,
+  )
+  .handler(async ({ data }) => {
+    const { persistLoginServer } = await import("./ops-persist.server");
+    return persistLoginServer(data);
+  });
+

@@ -4,6 +4,7 @@ import { Droplets, Eye, EyeOff } from "lucide-react";
 import { authClient, authEnabled } from "@/lib/auth/client";
 import { getLoginFlagsFn } from "@/lib/auth/login-flags";
 import { useCurrentUserState } from "@/lib/auth/use-current-user";
+import { persistAuthEvent } from "@/lib/ops/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -124,9 +125,23 @@ function Login() {
         });
         if (error) throw error;
       }
+      if (mode === "up") {
+        await persistAuthEvent({
+          email: trimmed,
+          name: name.trim() || trimmed.split("@")[0] || "",
+          role: "",
+          event: "DANG_KY",
+        });
+      }
       window.location.href = "/app/theodoi";
     } catch (ex) {
       setErr(authErrorText(ex));
+      void persistAuthEvent({
+        email: email.trim().toLowerCase(),
+        name: name.trim() || "",
+        role: "",
+        event: "THAT_BAI",
+      });
     } finally {
       setBusy(false);
     }

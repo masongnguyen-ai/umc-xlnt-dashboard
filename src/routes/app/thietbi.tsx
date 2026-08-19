@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import { toast } from "sonner";
 import { useAppStore } from "@/lib/store";
@@ -16,7 +16,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import { MAINT_SCHEDULE } from "@/lib/csdl";
 import { todayISO } from "@/lib/format";
-import { persistIncident } from "@/lib/ops/client";
+import { persistIncident, persistIncidentReview, persistMaint, reloadOpsLedger } from "@/lib/ops/client";
 import { ApprovalInbox } from "@/components/approval-inbox";
 import { APPROVAL_LABEL, pendingIncidents } from "@/lib/approval";
 import { prepareEvidenceImage, fmtBytes } from "@/lib/image-compress";
@@ -55,8 +55,6 @@ function ThietBi() {
   const maintenances = useAppStore((s) => s.maintenances);
   const updateEquipment = useAppStore((s) => s.updateEquipment);
   const addEquipment = useAppStore((s) => s.addEquipment);
-  const addMaintenance = useAppStore((s) => s.addMaintenance);
-  const reviewIncident = useAppStore((s) => s.reviewIncident);
   const writable = can(role, "write_thietbi");
   const canCatalog = role === "QUAN_LY";
 
@@ -96,6 +94,10 @@ function ThietBi() {
 
   const n600 = equipments.filter((e) => e.He_thong === "He_600").length;
   const n220 = equipments.filter((e) => e.He_thong === "He_220").length;
+
+  useEffect(() => {
+    void reloadOpsLedger();
+  }, []);
 
   function openNewEq() {
     const he = sys === "He_220" ? "He_220" : "He_600";
@@ -256,7 +258,7 @@ function ThietBi() {
               detail: fmtDate(i.Ngay_phat_sinh),
             }))}
             canReview={can(role, "approve_thietbi")}
-            onReview={(id, action, note) => reviewIncident(id, action, note, email)}
+            onReview={(id, action, note) => persistIncidentReview(id, action, note)}
           />
           {writable ? (
             <div className="flex flex-wrap justify-end gap-2">
@@ -556,7 +558,8 @@ function ThietBi() {
                   status: role === "QUAN_LY" ? "DA_CHOT" : "CHO_DUYET",
                 },
                 photos.map((p) => ({ name: p.name, dataUrl: p.dataUrl, driveUrl: p.driveUrl })),
-              ).then(() => {
+              ).then((r) => {
+                if (!r.ok) return;
                 setOpen(false);
                 setDesc("");
                 setFix("");
@@ -614,20 +617,22 @@ function ThietBi() {
                 toast.error("Cần nội dung bảo trì.");
                 return;
               }
-              addMaintenance({
+              void persistMaint({
                 Equipment_ID: mntEid,
                 Ngay_bao_tri: todayISO(),
                 Noi_dung_bao_tri: mntContent.trim(),
                 Vat_tu_thay_the: mntParts.trim() || "—",
                 Ket_qua: mntResult.trim() || "Đã thực hiện",
                 Ghi_chu: mntNote.trim(),
+              }).then((r) => {
+                if (!r.ok) return;
+                toast.success("Đã ghi bảo trì lên Sheet.");
+                setMntOpen(false);
+                setMntContent("");
+                setMntParts("");
+                setMntResult("");
+                setMntNote("");
               });
-              toast.success("Đã ghi bảo trì.");
-              setMntOpen(false);
-              setMntContent("");
-              setMntParts("");
-              setMntResult("");
-              setMntNote("");
             }}
           >
             Lưu

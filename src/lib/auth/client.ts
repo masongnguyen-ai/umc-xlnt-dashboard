@@ -226,6 +226,19 @@ function waitForPopupToken(popup: Window): Promise<string | null> {
 /** Sign out of THIS app's local session, clear the preview token, then redirect. */
 export async function signOut(redirectTo = "/"): Promise<void> {
   try {
+    const session = await authClient.getSession();
+    const email = session.data?.user?.email ?? "";
+    const name = session.data?.user?.name ?? "";
+    if (email) {
+      const { logAuthEventFn } = await import("@/lib/ops/fns");
+      await logAuthEventFn({
+        data: { email, name, role: "", event: "DANG_XUAT" },
+      });
+    }
+  } catch {
+    /* vẫn đăng xuất dù Sheet lỗi */
+  }
+  try {
     await authClient.signOut();
   } finally {
     setBearerToken(null);

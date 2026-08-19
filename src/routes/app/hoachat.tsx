@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import { toast } from "sonner";
 import { ChevronLeft, ChevronRight, TriangleAlert } from "lucide-react";
@@ -16,7 +16,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import { todayISO } from "@/lib/format";
-import { persistChemDoseChot, persistChemImportChot, persistChemTx } from "@/lib/ops/client";
+import { persistChemDoseReview, persistChemImportReview, persistChemRestockReview, persistChemTx, reloadOpsLedger } from "@/lib/ops/client";
 import { ApprovalInbox } from "@/components/approval-inbox";
 import { pendingDoses, pendingImports, pendingRestocks } from "@/lib/approval";
 import { cn } from "@/lib/utils";
@@ -47,9 +47,6 @@ function HoaChat() {
   const doses = useAppStore((s) => s.chemDoses) ?? [];
   const confirms = useAppStore((s) => s.chemConfirms) ?? [];
   const restocks = useAppStore((s) => s.chemRestocks) ?? [];
-  const reviewChemDose = useAppStore((s) => s.reviewChemDose);
-  const reviewChemImport = useAppStore((s) => s.reviewChemImport);
-  const reviewChemRestock = useAppStore((s) => s.reviewChemRestock);
   const writable = can(role, "write_hoachat");
 
   const [open, setOpen] = useState(false);
@@ -61,6 +58,10 @@ function HoaChat() {
   const [ngay, setNgay] = useState(todayISO());
   const today = vnTodayISO();
   const [lookup, setLookup] = useState(today);
+
+  useEffect(() => {
+    void reloadOpsLedger();
+  }, []);
 
   const day = findChemDay(lookup);
   const month = findChemMonth(lookup);
@@ -104,21 +105,9 @@ function HoaChat() {
         items={pendingItems}
         canReview={can(role, "approve_hoachat")}
         onReview={async (id, action, note) => {
-          if (id.startsWith("dose:")) {
-            const iso = id.slice(5);
-            const r = reviewChemDose(iso, action, note, email);
-            if (r.ok && action === "CHOT") await persistChemDoseChot(iso);
-            return r;
-          }
-          if (id.startsWith("nhap:")) {
-            const thang = id.slice(5);
-            const r = reviewChemImport(thang, action, note, email);
-            if (r.ok && action === "CHOT") await persistChemImportChot(thang);
-            return r;
-          }
-          if (id.startsWith("rst:")) {
-            return reviewChemRestock(id.slice(4), action, note, email);
-          }
+          if (id.startsWith("dose:")) return persistChemDoseReview(id.slice(5), action, note);
+          if (id.startsWith("nhap:")) return persistChemImportReview(id.slice(5), action, note);
+          if (id.startsWith("rst:")) return persistChemRestockReview(id.slice(4), action, note);
           return { ok: false, error: "Không rõ loại phiếu." };
         }}
       />

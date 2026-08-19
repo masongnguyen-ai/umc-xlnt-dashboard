@@ -1,27 +1,42 @@
 import { toast } from "sonner";
 import { useAppStore } from "@/lib/store";
-import type { AppUserRecord, ChemQty, ChemReceipt, ChemRestockStatus, ChemTx, EvidencePhoto, Incident } from "@/lib/types";
-import type { SheetSyncInfo } from "./types";
+import type {
+  AppUserRecord,
+  ChemQty,
+  ChemReceipt,
+  ChemRestockStatus,
+  ChemTx,
+  EvidencePhoto,
+  Incident,
+  Maintenance,
+  OpLog,
+} from "@/lib/types";
+import type { SheetAuditRow, SheetSyncInfo } from "./types";
 import {
+  getOpsLedgerFn,
   getOpsStateFn,
   getStaffMeFn,
-  migrateLocalChemFn,
+  logAuthEventFn,
   patchChemRestockFn,
-  saveChemDoseFn,
-  saveChemImportFn,
-  saveChemRestockFn,
+  reviewOpsDoseFn,
+  reviewOpsImportFn,
+  reviewOpsIncidentFn,
+  reviewOpsRestockFn,
+  reviewShiftLogFn,
   saveChemTxFn,
   saveIncidentFn,
+  saveOpsDoseFn,
+  saveOpsImportFn,
+  saveOpsMaintFn,
+  saveOpsRestockFn,
+  saveShiftLogFn,
   saveStaffFn,
 } from "./fns";
 
-const MIGRATED_KEY = "umc_ops_migrated_v1";
-
 function sheetToast(sheet?: SheetSyncInfo) {
   if (!sheet) return;
-  if (sheet.mode === "local") return;
-  if (sheet.ok) toast.success(`Đã ghi tab ${sheet.tabs.join(" · ")} — không đụng sheet lưu lượng.`);
-  else toast.error(sheet.error || "Không ghi được sheet hóa chất.");
+  if (sheet.ok) toast.success(`Đã ghi tab ${sheet.tabs.join(" · ")}.`);
+  else toast.error(sheet.error || "Không ghi được Sheet vận hành.");
 }
 
 function errMsg(err: unknown, fallback: string) {
@@ -35,6 +50,36 @@ export function errMessage(err: unknown, fallback = "Lỗi máy chủ") {
   return errMsg(err, fallback);
 }
 
+function failedTabs(audit: SheetAuditRow[]) {
+  return new Set(audit.filter((a) => a.error).map((a) => a.tab));
+}
+
+export async function reloadOpsLedger() {
+  try {
+    const ledger = await getOpsLedgerFn();
+    const failed = failedTabs(ledger.audit);
+    useAppStore.getState().hydrateOps({
+      logs: failed.has("NHAT_KY") ? undefined : ledger.logs,
+      chemConfirms: failed.has("HOA_CHAT_NHAP") ? undefined : ledger.confirms,
+      chemDoses: failed.has("HOA_CHAT_LIEU") ? undefined : ledger.doses,
+      chemRestocks: failed.has("HOA_CHAT_DIEU_DONG") ? undefined : ledger.restocks,
+      incidents: failed.has("SU_CO_TB") ? undefined : ledger.incidents,
+      maintenances: failed.has("BAO_TRI_TB") ? undefined : ledger.maintenances,
+      sheetAudit: ledger.audit,
+      sheetSync: ledger.sheet,
+    });
+    if (!ledger.sheet.ok) toast.error(ledger.sheet.error || "Không đọc được Sheet vận hành.");
+    return ledger;
+  } catch (err) {
+    const error = errMsg(err, "Không đọc được Sheet vận hành.");
+    useAppStore.setState({
+      sheetSync: { ok: false, mode: "sheets", tabs: [], error },
+    });
+    toast.error(error);
+    return null;
+  }
+}
+
 export async function hydrateOpsFromServer() {
   const r = await getStaffMeFn();
   if (!r.ok) {
@@ -44,47 +89,86 @@ export async function hydrateOpsFromServer() {
   const me = r;
   useAppStore.getState().saveUser(me.staff);
   useAppStore.setState({ staffBlocked: null, sheetSync: me.sheet, opsReady: true });
+  if (me.sheet && !me.sheet.ok) toast.error(me.sheet.error || "Không kết nối được Sheet vận hành.");
 
   try {
     const snap = await getOpsStateFn();
     useAppStore.getState().hydrateOps({
       users: snap.users.length ? snap.users : [me.staff],
-      chemConfirms: snap.confirms,
-      chemDoses: snap.doses,
-      chemRestocks: snap.restocks,
       transactions: snap.transactions,
       stocks: Object.keys(snap.stocks).length ? snap.stocks : useAppStore.getState().stocks,
       sheetSync: snap.sheet,
     });
+  } catch {
+    /* chưa có quyền hóa chất / Neon */
+  }
 
-    if (localStorage.getItem(MIGRATED_KEY) !== "1") {
-      const store = useAppStore.getState();
-      if (!snap.confirms.length && !snap.doses.length && (store.chemConfirms.length || store.chemDoses.length)) {
-        await migrateLocalChemFn({
-          data: {
-            confirms: store.chemConfirms,
-            doses: store.chemDoses,
-            restocks: store.chemRestocks ?? [],
-            transactions: store.transactions ?? [],
-          },
+  await reloadOpsLedger();
+
+  try {
+    if (typeof sessionStorage !== "undefined" && sessionStorage.getItem("umc_login_logged") !== "1") {
+      sessionStorage.setItem("umc_login_logged", "1");
+      await persistAuthEvent({
+          email: me.staff.Email,
+          name: me.staff.Ho_ten,
+          role: me.staff.Vai_tro,
+          event: "DANG_NHAP",
         });
-        const again = await getOpsStateFn();
-        useAppStore.getState().hydrateOps({
-          users: again.users.length ? again.users : [me.staff],
-          chemConfirms: again.confirms,
-          chemDoses: again.doses,
-          chemRestocks: again.restocks,
-          transactions: again.transactions,
-          stocks: again.stocks,
-          sheetSync: again.sheet,
-        });
-      }
-      localStorage.setItem(MIGRATED_KEY, "1");
     }
   } catch {
-    /* lần đầu / chưa có quyền hóa chất */
+    /* đăng nhập vẫn vào app — LOGIN_LOG lỗi thì toast ở persistAuthEvent */
   }
+
   return me;
+}
+
+export async function persistAuthEvent(input: {
+  email: string;
+  name: string;
+  role: string;
+  event: "DANG_NHAP" | "DANG_XUAT" | "DANG_KY" | "THAT_BAI";
+}) {
+  try {
+    const r = await logAuthEventFn({ data: input });
+    if (!r.ok) toast.error(r.error);
+    return r;
+  } catch (err) {
+    toast.error(errMsg(err, "Không ghi được tab LOGIN_LOG."));
+    return { ok: false as const, error: errMsg(err, "Không ghi được tab LOGIN_LOG.") };
+  }
+}
+
+export async function persistShiftLog(log: OpLog, asDraft: boolean) {
+  try {
+    const r = await saveShiftLogFn({ data: { log, asDraft } });
+    if (!r.ok) return r;
+    const logs = useAppStore.getState().logs;
+    useAppStore.setState({
+      logs: logs.some((l) => l.Log_ID === r.log.Log_ID)
+        ? logs.map((l) => (l.Log_ID === r.log.Log_ID ? r.log : l))
+        : [r.log, ...logs],
+      sheetSync: r.sheet,
+    });
+    return r;
+  } catch (err) {
+    const error = errMsg(err, "Không ghi được nhật ký lên Sheet.");
+    toast.error(error);
+    return { ok: false as const, error };
+  }
+}
+
+export async function persistShiftLogReview(id: string, action: "CHOT" | "TRA_LAI" | "MO_LAI", note: string) {
+  try {
+    const r = await reviewShiftLogFn({ data: { id, action, note } });
+    if (!r.ok) return r;
+    useAppStore.setState({
+      logs: useAppStore.getState().logs.map((l) => (l.Log_ID === r.log.Log_ID ? r.log : l)),
+      sheetSync: r.sheet,
+    });
+    return r;
+  } catch (err) {
+    return { ok: false as const, error: errMsg(err, "Không ghi được nhật ký lên Sheet.") };
+  }
 }
 
 export async function persistChemImport(input: {
@@ -94,58 +178,57 @@ export async function persistChemImport(input: {
   note: string;
   lock: boolean;
 }) {
-  const local = useAppStore.getState().confirmChemImport(input);
-  if (!local.ok) return local;
-  const rec = useAppStore.getState().chemConfirms.find((c) => c.thang === input.thang);
-  if (rec?.status !== "DA_CHOT") {
-    return { ok: true as const };
-  }
   try {
-    const r = await saveChemImportFn({
-      data: { thang: input.thang, receipts: input.receipts, note: input.note, lock: true },
+    const r = await saveOpsImportFn({
+      data: { thang: input.thang, receipts: input.receipts, note: input.note, submit: input.lock },
     });
     if (!r.ok) return r;
-    useAppStore.setState({ sheetSync: r.sheet });
-    sheetToast(r.sheet);
+    const rest = (useAppStore.getState().chemConfirms ?? []).filter((c) => c.thang !== r.confirm.thang);
+    useAppStore.setState({ chemConfirms: [...rest, r.confirm], sheetSync: r.sheet });
     return { ok: true as const };
   } catch (err) {
-    return { ok: false as const, error: errMsg(err, "Máy chủ từ chối chốt nhập.") };
+    return { ok: false as const, error: errMsg(err, "Không ghi được tab HOA_CHAT_NHAP.") };
   }
 }
 
 export async function persistChemDose(log: { iso: string; qty: ChemQty; actor: string; note: string }) {
-  const local = useAppStore.getState().saveChemDose(log);
-  if (!local.ok) return local;
-  return { ok: true as const };
-}
-
-export async function persistChemDoseChot(iso: string) {
-  const rec = useAppStore.getState().chemDoses.find((d) => d.iso === iso);
-  if (!rec || rec.status !== "DA_CHOT") return { ok: false as const, error: "Chưa chốt liều." };
   try {
-    const r = await saveChemDoseFn({ data: { iso: rec.iso, qty: rec.qty, note: rec.note } });
+    const r = await saveOpsDoseFn({ data: { iso: log.iso, qty: log.qty, note: log.note } });
     if (!r.ok) return r;
-    useAppStore.setState({ sheetSync: r.sheet });
-    sheetToast(r.sheet);
+    const rest = (useAppStore.getState().chemDoses ?? []).filter((d) => d.iso !== r.dose.iso);
+    useAppStore.setState({
+      chemDoses: [...rest, r.dose].sort((a, b) => b.iso.localeCompare(a.iso)),
+      sheetSync: r.sheet,
+    });
     return { ok: true as const };
   } catch (err) {
-    return { ok: false as const, error: errMsg(err, "Máy chủ từ chối ghi liều.") };
+    return { ok: false as const, error: errMsg(err, "Không ghi được tab HOA_CHAT_LIEU.") };
   }
 }
 
-export async function persistChemImportChot(thang: string) {
-  const rec = useAppStore.getState().chemConfirms.find((c) => c.thang === thang);
-  if (!rec || rec.status !== "DA_CHOT") return { ok: false as const, error: "Chưa chốt nhập." };
+export async function persistChemDoseReview(iso: string, action: "CHOT" | "TRA_LAI" | "MO_LAI", note: string) {
   try {
-    const r = await saveChemImportFn({
-      data: { thang: rec.thang, receipts: rec.receipts, note: rec.note, lock: true },
-    });
+    const r = await reviewOpsDoseFn({ data: { iso, action, note } });
     if (!r.ok) return r;
-    useAppStore.setState({ sheetSync: r.sheet });
-    sheetToast(r.sheet);
-    return { ok: true as const };
+    useAppStore.setState({
+      chemDoses: (useAppStore.getState().chemDoses ?? []).map((d) => (d.iso === r.dose.iso ? r.dose : d)),
+      sheetSync: r.sheet,
+    });
+    return r;
   } catch (err) {
-    return { ok: false as const, error: errMsg(err, "Máy chủ từ chối chốt nhập.") };
+    return { ok: false as const, error: errMsg(err, "Không ghi được tab HOA_CHAT_LIEU.") };
+  }
+}
+
+export async function persistChemImportReview(thang: string, action: "CHOT" | "TRA_LAI", note: string) {
+  try {
+    const r = await reviewOpsImportFn({ data: { thang, action, note } });
+    if (!r.ok) return r;
+    const rest = (useAppStore.getState().chemConfirms ?? []).filter((c) => c.thang !== r.confirm.thang);
+    useAppStore.setState({ chemConfirms: [...rest, r.confirm], sheetSync: r.sheet });
+    return r;
+  } catch (err) {
+    return { ok: false as const, error: errMsg(err, "Không ghi được tab HOA_CHAT_NHAP.") };
   }
 }
 
@@ -164,16 +247,38 @@ export async function persistChemTx(tx: Omit<ChemTx, "Tx_ID" | "Ngay_tao">) {
 }
 
 export async function persistChemRestock(input: { actor: string; reason: string; qty: ChemQty }) {
-  const local = useAppStore.getState().requestChemRestock(input);
-  if (!local.ok) return local;
   try {
-    return await saveChemRestockFn({ data: { reason: input.reason, qty: input.qty } });
+    const r = await saveOpsRestockFn({ data: { reason: input.reason, qty: input.qty } });
+    if (!r.ok) return r;
+    useAppStore.setState({
+      chemRestocks: [r.rec, ...(useAppStore.getState().chemRestocks ?? []).filter((x) => x.id !== r.rec.id)],
+      sheetSync: r.sheet,
+    });
+    return { ok: true as const };
   } catch (err) {
-    return { ok: false as const, error: errMsg(err, "Máy chủ từ chối điều động.") };
+    return { ok: false as const, error: errMsg(err, "Không ghi được tab HOA_CHAT_DIEU_DONG.") };
+  }
+}
+
+export async function persistChemRestockReview(id: string, action: "CHOT" | "TRA_LAI", note: string) {
+  try {
+    const r = await reviewOpsRestockFn({ data: { id, action, note } });
+    if (!r.ok) return r;
+    useAppStore.setState({
+      chemRestocks: (useAppStore.getState().chemRestocks ?? []).map((x) => (x.id === r.rec.id ? r.rec : x)),
+      sheetSync: r.sheet,
+    });
+    return r;
+  } catch (err) {
+    return { ok: false as const, error: errMsg(err, "Không ghi được tab HOA_CHAT_DIEU_DONG.") };
   }
 }
 
 export async function persistChemRestockStatus(id: string, status: ChemRestockStatus) {
+  const rec = (useAppStore.getState().chemRestocks ?? []).find((r) => r.id === id);
+  if (rec?.approvalStatus === "CHO_DUYET") {
+    return { ok: false as const, error: "Chờ quản lý chốt trước khi cập nhật giao hàng." };
+  }
   useAppStore.getState().updateChemRestock(id, status);
   try {
     await patchChemRestockFn({ data: { id, status } });
@@ -200,40 +305,73 @@ export async function persistIncident(
   inc: Omit<Incident, "Incident_ID" | "Anh">,
   photos: Array<{ name: string; dataUrl?: string; driveUrl?: string }>,
 ) {
-  const rec = useAppStore.getState().addIncident({ ...inc, Anh: [] });
   try {
     const r = await saveIncidentFn({
       data: {
         incident: {
-          Incident_ID: rec.Incident_ID,
-          Equipment_ID: rec.Equipment_ID,
-          Ngay_phat_sinh: rec.Ngay_phat_sinh,
-          Mo_ta_su_co: rec.Mo_ta_su_co,
-          Bien_phap_xu_ly: rec.Bien_phap_xu_ly,
-          Trang_thai: rec.Trang_thai,
-          Nguoi_khac_phuc: rec.Nguoi_khac_phuc,
-          Ngay_hoan_thanh: rec.Ngay_hoan_thanh,
+          Incident_ID: "",
+          Equipment_ID: inc.Equipment_ID,
+          Ngay_phat_sinh: inc.Ngay_phat_sinh,
+          Mo_ta_su_co: inc.Mo_ta_su_co,
+          Bien_phap_xu_ly: inc.Bien_phap_xu_ly,
+          Trang_thai: inc.Trang_thai,
+          Nguoi_khac_phuc: inc.Nguoi_khac_phuc,
+          Ngay_hoan_thanh: inc.Ngay_hoan_thanh,
         },
         photos,
       },
     });
+    if (!r.ok || !r.sheetOk) {
+      const error = ("error" in r && r.error) || r.sheetError || "Không ghi được tab SU_CO_TB.";
+      toast.error(error);
+      return { ok: false as const, error };
+    }
     const anh: EvidencePhoto[] = r.photos ?? [];
+    const rec = { ...inc, ...r.rec, Anh: anh };
     useAppStore.setState({
-      incidents: useAppStore.getState().incidents.map((i) => (i.Incident_ID === rec.Incident_ID ? { ...i, Anh: anh } : i)),
+      incidents: [rec, ...useAppStore.getState().incidents.filter((i) => i.Incident_ID !== rec.Incident_ID)],
+      sheetSync: r.sheet,
     });
-    if (!r.driveOk) {
-      toast.error(r.driveError || "Chưa lưu được ảnh lên Drive. Chia sẻ thư mục ảnh cho tài khoản máy chủ.");
-    } else if (anh.length) {
-      toast.success(`Đã ghi sự cố · ${anh.length} ảnh trên Drive.`);
-    } else {
-      toast.success("Đã ghi sự cố.");
-    }
-    if (!r.sheetOk && r.sheetError) {
-      toast.message("Sự cố đã lưu trên máy — chưa ghi được tab EQP_INCIDENTS.");
-    }
+    if (!r.driveOk) toast.error(r.driveError || "Chưa lưu được ảnh lên Drive.");
+    else if (anh.length) toast.success(`Đã ghi sự cố lên Sheet · ${anh.length} ảnh trên Drive.`);
+    else toast.success("Đã ghi sự cố lên Sheet.");
     return { ok: true as const };
   } catch (err) {
-    toast.success("Đã ghi sự cố trên máy.");
-    return { ok: true as const, warning: errMsg(err, "Chưa đẩy được Drive.") };
+    const error = errMsg(err, "Không ghi được tab SU_CO_TB.");
+    toast.error(error);
+    return { ok: false as const, error };
+  }
+}
+
+export async function persistIncidentReview(id: string, action: "CHOT" | "TRA_LAI", note: string) {
+  try {
+    const r = await reviewOpsIncidentFn({ data: { id, action, note } });
+    if (!r.ok) return r;
+    useAppStore.setState({
+      incidents: useAppStore.getState().incidents.map((i) => (i.Incident_ID === r.rec.Incident_ID ? { ...i, ...r.rec } : i)),
+      sheetSync: r.sheet,
+    });
+    return r;
+  } catch (err) {
+    return { ok: false as const, error: errMsg(err, "Không ghi được tab SU_CO_TB.") };
+  }
+}
+
+export async function persistMaint(m: Omit<Maintenance, "Maint_ID">) {
+  try {
+    const r = await saveOpsMaintFn({ data: m });
+    if (!r.ok) {
+      toast.error(r.error);
+      return r;
+    }
+    useAppStore.setState({
+      maintenances: [r.rec, ...useAppStore.getState().maintenances.filter((x) => x.Maint_ID !== r.rec.Maint_ID)],
+      sheetSync: r.sheet,
+    });
+    return r;
+  } catch (err) {
+    const error = errMsg(err, "Không ghi được tab BAO_TRI_TB.");
+    toast.error(error);
+    return { ok: false as const, error };
   }
 }

@@ -21,7 +21,7 @@ import {
 } from "@/lib/chem-plan";
 import type { ChemQty, Role } from "@/lib/types";
 import { can } from "@/lib/permissions";
-import { persistChemDose, persistChemRestock, persistChemRestockStatus } from "@/lib/ops/client";
+import { persistChemDose, persistChemDoseReview, persistChemRestock, persistChemRestockStatus } from "@/lib/ops/client";
 import { useAppStore } from "@/lib/store";
 import { cn } from "@/lib/utils";
 import { APPROVAL_LABEL, asApproval, canStaffEdit, isChot } from "@/lib/approval";
@@ -47,7 +47,6 @@ export function ChemDoseDesk({
   const canDose = can(role, "write_chem_dose");
   const canOrder = can(role, "write_hoachat");
   const isManager = role === "QUAN_LY";
-  const reopenChemDose = useAppStore((s) => s.reopenChemDose);
 
   const logged = findDose(doses, day.iso);
   const suggest = dayToQty(day);
@@ -285,9 +284,10 @@ export function ChemDoseDesk({
             variant="secondary"
             className="mt-2 min-h-11"
             onClick={() => {
-              const r = reopenChemDose(day.iso, email);
-              if (!r.ok) toast.error(r.error);
-              else toast.success("Đã mở lại phiếu liều.");
+              void persistChemDoseReview(day.iso, "MO_LAI", "").then((r) => {
+                if (!r.ok) toast.error(r.error);
+                else toast.success("Đã mở lại phiếu liều trên Sheet.");
+              });
             }}
           >
             Mở lại

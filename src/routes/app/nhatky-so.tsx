@@ -4,9 +4,9 @@ import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { fmtDateTime } from "@/lib/format";
-import { listAuditsFn, restoreBackupFn, getOpsStateFn } from "@/lib/ops/fns";
+import { listAuditsFn, restoreBackupFn, getOpsStateFn, getOpsLedgerFn } from "@/lib/ops/fns";
 import { errMessage } from "@/lib/ops/client";
-import type { AuditEvent, OpsBackup } from "@/lib/ops/types";
+import type { AuditEvent, OpsBackup, SheetAuditRow } from "@/lib/ops/types";
 import { can } from "@/lib/permissions";
 import { useAppStore } from "@/lib/store";
 import { useCurrentUser } from "@/lib/auth/use-current-user";
@@ -21,11 +21,15 @@ function NhatKySo() {
   const role = (users.find((u) => u.Email.toLowerCase() === email.toLowerCase())?.Vai_tro ?? "CA_TRUC") as Role;
   const [audits, setAudits] = useState<AuditEvent[]>([]);
   const [backups, setBackups] = useState<OpsBackup[]>([]);
+  const [sheetAudit, setSheetAudit] = useState<SheetAuditRow[]>([]);
   const canRestore = can(role, "write_backup");
 
   useEffect(() => {
     void listAuditsFn()
       .then(setAudits)
+      .catch((err) => toast.error(errMessage(err)));
+    void getOpsLedgerFn()
+      .then((l) => setSheetAudit(l.audit))
       .catch((err) => toast.error(errMessage(err)));
     void getOpsStateFn()
       .then((s) => setBackups(s.backups))
@@ -34,6 +38,61 @@ function NhatKySo() {
 
   return (
     <div className="mx-auto max-w-5xl space-y-6">
+      <section>
+        <h2 className="text-sm font-semibold">Ghi Sheet vận hành</h2>
+        <p className="mt-1 text-sm text-muted">
+          Mỗi module đọc/ghi tab trên não chính. Sheet lưu lượng chỉ đọc, không ghi đè. Chốt = quản lý duyệt.
+        </p>
+        <div className="mt-3 overflow-x-auto rounded-xl border border-border">
+          <table className="w-full min-w-[560px] text-sm">
+            <thead className="bg-surface2 text-[11px] uppercase tracking-wide text-muted">
+              <tr>
+                {["Module", "Tab", "Đã ghi Sheet?", "Đã duyệt?"].map((h) => (
+                  <th key={h} className="px-3 py-2.5 text-left font-medium">
+                    {h}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {sheetAudit.length === 0 ? (
+                <tr>
+                  <td className="px-3 py-6 text-muted" colSpan={4}>
+                    Chưa đọc được bảng audit Sheet.
+                  </td>
+                </tr>
+              ) : (
+                sheetAudit.map((a) => (
+                  <tr key={a.tab} className="border-t border-border">
+                    <td className="px-3 py-2">{a.module}</td>
+                    <td className="px-3 py-2 font-mono text-xs">{a.tab}</td>
+                    <td className="px-3 py-2">
+                      {a.error ? (
+                        <Badge variant="bad">Lỗi</Badge>
+                      ) : a.wrote ? (
+                        <Badge variant="ok">Có</Badge>
+                      ) : (
+                        <Badge>Chưa</Badge>
+                      )}
+                      {a.error ? <span className="ml-2 text-xs text-bad">{a.error}</span> : null}
+                    </td>
+                    <td className="px-3 py-2">
+                      {a.tab === "LOGIN_LOG" || a.tab === "BAO_TRI_TB"
+                        ? "—"
+                        : a.pending > 0
+                          ? `Chờ ${a.pending}`
+                          : a.chot > 0
+                            ? `Đã chốt (${a.chot})`
+                            : "Chưa có phiếu"}
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
+      </section>
+
       <section>
         <h2 className="text-sm font-semibold">Ai sửa số</h2>
         <p className="mt-1 text-sm text-muted">

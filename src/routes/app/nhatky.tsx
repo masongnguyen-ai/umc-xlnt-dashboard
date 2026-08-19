@@ -20,6 +20,7 @@ import { ShiftAbnormalHandover } from "@/components/shift-abnormal-handover";
 import { followupForDraft, inferHandover, listOpenFollowups, normalizeLog, emptyAbnormal } from "@/lib/shift-log";
 import { uid } from "@/lib/utils";
 import { cn } from "@/lib/utils";
+import { persistShiftLog, persistShiftLogReview, reloadOpsLedger } from "@/lib/ops/client";
 
 export const Route = createFileRoute("/app/nhatky")({ component: NhatKy });
 
@@ -91,9 +92,6 @@ function NhatKy() {
   const role = (users.find((u) => u.Email.toLowerCase() === email.toLowerCase())?.Vai_tro ?? "QUAN_LY") as Role;
   const logs = useAppStore((s) => s.logs);
   const checklist = useAppStore((s) => s.checklist);
-  const saveLog = useAppStore((s) => s.saveLog);
-  const approveLog = useAppStore((s) => s.approveLog);
-  const reopenLog = useAppStore((s) => s.reopenLog);
 
   const [q, setQ] = useState("");
   const [filter, setFilter] = useState<"all" | "abn" | "open" | "pending">("all");
@@ -115,6 +113,10 @@ function NhatKy() {
   const people = opsKind ? opsStaff.filter((u) => u.Vai_tro === opsKind) : [];
   const witnessId = named?.User_ID ?? "";
   const openItems = useMemo(() => listOpenFollowups(logs), [logs]);
+
+  useEffect(() => {
+    void reloadOpsLedger();
+  }, []);
 
   const list = useMemo(() => {
     return logs.filter((l) => {
@@ -168,7 +170,7 @@ function NhatKy() {
     setOpen(true);
   };
 
-  const submit = (asDraft: boolean) => {
+  const submit = async (asDraft: boolean) => {
     if (!draft) return;
     const person = opsStaff.find(
       (u) => u.Ho_ten === draft.Nguoi_xacnhan_BV || u.Email === draft.Nguoi_xacnhan_BV,
@@ -177,16 +179,12 @@ function NhatKy() {
       person && (person.Vai_tro === "CA_TRUC" || person.Vai_tro === "NHA_THAU")
         ? { ...draft, Chucvu_xacnhan_BV: ROLE_LABEL[person.Vai_tro] }
         : draft;
-    const r = saveLog(payload, email, asDraft);
+    const r = await persistShiftLog(payload, asDraft);
     if (!r.ok) {
       toast.error(r.error);
       return;
     }
-    if (r.warnings.length) {
-      toast.warning(r.warnings.map((w) => w.message).join(" · "), { duration: 7000 });
-    } else {
-      toast.success(asDraft ? "Đã lưu nháp." : "Đã gửi duyệt.");
-    }
+    toast.success(asDraft ? "Đã lưu nháp trên Sheet." : "Đã gửi duyệt — chờ quản lý chốt.");
     setOpen(false);
   };
 
@@ -201,10 +199,7 @@ function NhatKy() {
           detail: `${l.Nguoi_tao}${l.reviewNote ? ` · ${l.reviewNote}` : ""}`,
         }))}
         canReview={can(role, "approve_nhatky")}
-        onReview={(id, action, reviewNote) => {
-          const r = approveLog(id, action === "CHOT" ? "DUYET" : "BO_SUNG", reviewNote, email);
-          return r;
-        }}
+        onReview={(id, action, reviewNote) => persistShiftLogReview(id, action, reviewNote)}
       />
 
       {openItems.length ? (
@@ -574,12 +569,13 @@ function NhatKy() {
                 <>
                   <Button
                     onClick={() => {
-                      const r = approveLog(draft.Log_ID, "DUYET", note, email);
-                      if (!r.ok) toast.error(r.error);
-                      else {
-                        toast.success("Đã chốt.");
-                        setOpen(false);
-                      }
+                      void persistShiftLogReview(draft.Log_ID, "CHOT", note).then((r) => {
+                        if (!r.ok) toast.error(r.error);
+                        else {
+                          toast.success("Đã chốt trên Sheet.");
+                          setOpen(false);
+                        }
+                      });
                     }}
                   >
                     Chốt
@@ -587,12 +583,13 @@ function NhatKy() {
                   <Button
                     variant="secondary"
                     onClick={() => {
-                      const r = approveLog(draft.Log_ID, "BO_SUNG", note, email);
-                      if (!r.ok) toast.error(r.error);
-                      else {
-                        toast.message("Đã trả lại.");
-                        setOpen(false);
-                      }
+                      void persistShiftLogReview(draft.Log_ID, "TRA_LAI", note).then((r) => {
+                        if (!r.ok) toast.error(r.error);
+                        else {
+                          toast.message("Đã trả lại trên Sheet.");
+                          setOpen(false);
+                        }
+                      });
                     }}
                   >
                     Trả lại
@@ -602,14 +599,15 @@ function NhatKy() {
               {can(role, "approve_nhatky") && isChot(draft.Trang_thai) ? (
                 <Button
                   variant="secondary"
-                  onClick={() => {
-                    const r = reopenLog(draft.Log_ID, email);
-                    if (!r.ok) toast.error(r.error);
-                    else {
-                      toast.success("Đã mở lại — có thể sửa rồi gửi.");
-                      setDraft({ ...draft, Trang_thai: "NHAP" });
-                    }
-                  }}
+                    onClick={() => {
+                      void persistShiftLogReview(draft.Log_ID, "MO_LAI", note).then((r) => {
+                        if (!r.ok) toast.error(r.error);
+                        else {
+                          toast.success("Đã mở lại trên Sheet — có thể sửa rồi gửi.");
+                          setDraft({ ...draft, Trang_thai: "NHAP" });
+                        }
+                      });
+                    }}
                 >
                   Mở lại
                 </Button>

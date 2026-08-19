@@ -29,6 +29,13 @@ export const MAIN_TABS = [
   "CHEM_LIEU",
   "CHEM_TON",
   "AUDIT_SO",
+  "NHAT_KY",
+  "HOA_CHAT_LIEU",
+  "HOA_CHAT_NHAP",
+  "HOA_CHAT_DIEU_DONG",
+  "SU_CO_TB",
+  "BAO_TRI_TB",
+  "LOGIN_LOG",
   "EQUIPMENTS",
   "EQP_MAINTENANCES",
   "EQP_INCIDENTS",
@@ -261,4 +268,60 @@ export async function getMainSheetData(sheetName: string): Promise<SheetCell[][]
 /** Thêm dòng trên não chính. */
 export async function appendMainRow(sheetName: string, values: SheetCell[]) {
   return appendRow(MAIN_SHEET_ID, sheetName, values);
+}
+
+export async function appendMainRows(sheetName: string, rows: SheetCell[][]) {
+  const id = MAIN_SHEET_ID;
+  const tab = assertTab(sheetName);
+  try {
+    assertWritable(id);
+    if (!rows.length) return { updatedRange: "", updatedRows: 0 };
+    const res = await getSheets().spreadsheets.values.append({
+      spreadsheetId: id,
+      range: tabRange(tab, "A:ZZ"),
+      valueInputOption: "USER_ENTERED",
+      insertDataOption: "INSERT_ROWS",
+      requestBody: { values: rows },
+    });
+    const u = res.data.updates;
+    return {
+      updatedRange: u?.updatedRange ?? "",
+      updatedRows: Number(u?.updatedRows ?? 0),
+    };
+  } catch (err) {
+    wrap(err, `Không thêm dòng ${tab}`);
+  }
+}
+
+export async function listMainTabTitles(): Promise<string[]> {
+  try {
+    const res = await getSheets().spreadsheets.get({
+      spreadsheetId: MAIN_SHEET_ID,
+      fields: "sheets.properties.title",
+    });
+    return (res.data.sheets ?? []).map((s) => s.properties?.title ?? "").filter(Boolean);
+  } catch (err) {
+    wrap(err, "Không liệt kê tab não chính");
+  }
+}
+
+/** Tạo tab + header nếu chưa có. Không xóa dữ liệu cũ. */
+export async function ensureMainTab(title: string, headers: string[]): Promise<void> {
+  const tab = assertTab(title);
+  assertWritable(MAIN_SHEET_ID);
+  const titles = await listMainTabTitles();
+  if (!titles.includes(tab)) {
+    try {
+      await getSheets().spreadsheets.batchUpdate({
+        spreadsheetId: MAIN_SHEET_ID,
+        requestBody: { requests: [{ addSheet: { properties: { title: tab } } }] },
+      });
+    } catch (err) {
+      wrap(err, `Không tạo tab ${tab}`);
+    }
+    await appendMainRow(tab, headers);
+    return;
+  }
+  const rows = await getMainSheetData(tab);
+  if (!rows.length) await appendMainRow(tab, headers);
 }

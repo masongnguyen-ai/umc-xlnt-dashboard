@@ -40,9 +40,9 @@ import {
 import { FLOW_SHEET_META } from "./flow-data";
 import { annotateFlow, generateFlowDays, scanFlowAlerts, softValidateLog } from "./flow";
 import { listOpenFollowups, normalizeLog, syncLegacyIncident, validateShiftLog } from "./shift-log";
-import type { SheetSyncInfo } from "./ops/types";
+import type { SheetAuditRow, SheetSyncInfo } from "./ops/types";
 import { uid } from "./utils";
-import { canStaffEdit, isChot, overlayPending } from "./approval";
+import { canStaffEdit, isChot } from "./approval";
 
 function actorRole(users: { Email: string; Vai_tro: Role }[], actor: string): Role | undefined {
   return users.find((u) => u.Email.toLowerCase() === actor.toLowerCase())?.Vai_tro;
@@ -93,6 +93,7 @@ function buildOfficialState() {
     opsReady: false,
     staffBlocked: null as string | null,
     sheetSync: null as SheetSyncInfo | null,
+    sheetAudit: [] as SheetAuditRow[],
   };
 }
 
@@ -122,6 +123,7 @@ type State = {
   opsReady: boolean;
   staffBlocked: string | null;
   sheetSync: SheetSyncInfo | null;
+  sheetAudit: SheetAuditRow[];
 
   applyFlowDays: (days: FlowDay[]) => void;
   ensureUser: (email: string, name: string) => AppUserRecord;
@@ -165,6 +167,9 @@ type State = {
   resetDemo: () => void;
   syncFromCsdl: () => void;
   hydrateOps: (patch: {
+    logs?: OpLog[];
+    incidents?: Incident[];
+    maintenances?: Maintenance[];
     chemConfirms?: ChemImportConfirm[];
     chemDoses?: ChemDoseLog[];
     chemRestocks?: ChemRestockRequest[];
@@ -172,6 +177,7 @@ type State = {
     stocks?: Record<string, number>;
     users?: AppUserRecord[];
     sheetSync?: SheetSyncInfo | null;
+    sheetAudit?: SheetAuditRow[];
   }) => void;
 };
 
@@ -752,39 +758,16 @@ export const useAppStore = create<State>()(
       syncFromCsdl: () => set({ ...buildOfficialState(), opsReady: true }),
       hydrateOps: (patch) =>
         set({
-          ...(patch.chemConfirms !== undefined
-            ? {
-                chemConfirms: overlayPending(
-                  get().chemConfirms,
-                  patch.chemConfirms,
-                  (c) => c.thang,
-                  (c) => c.status === "CHO_DUYET" || c.status === "NHAP" || c.status === "TRA_LAI",
-                ),
-              }
-            : {}),
-          ...(patch.chemDoses !== undefined
-            ? {
-                chemDoses: overlayPending(
-                  get().chemDoses,
-                  patch.chemDoses,
-                  (d) => d.iso,
-                  (d) => d.status === "CHO_DUYET" || d.status === "NHAP" || d.status === "TRA_LAI",
-                ),
-              }
-            : {}),
-          ...(patch.chemRestocks !== undefined
-            ? {
-                chemRestocks: overlayPending(
-                  get().chemRestocks,
-                  patch.chemRestocks,
-                  (r) => r.id,
-                  (r) => r.approvalStatus === "CHO_DUYET" || r.approvalStatus === "NHAP" || r.approvalStatus === "TRA_LAI",
-                ),
-              }
-            : {}),
+          ...(patch.logs !== undefined ? { logs: patch.logs } : {}),
+          ...(patch.incidents !== undefined ? { incidents: patch.incidents } : {}),
+          ...(patch.maintenances !== undefined ? { maintenances: patch.maintenances } : {}),
+          ...(patch.chemConfirms !== undefined ? { chemConfirms: patch.chemConfirms } : {}),
+          ...(patch.chemDoses !== undefined ? { chemDoses: patch.chemDoses } : {}),
+          ...(patch.chemRestocks !== undefined ? { chemRestocks: patch.chemRestocks } : {}),
           ...(patch.transactions !== undefined ? { transactions: patch.transactions } : {}),
           ...(patch.stocks !== undefined ? { stocks: patch.stocks } : {}),
           ...(patch.users !== undefined ? { users: patch.users } : {}),
+          ...(patch.sheetAudit !== undefined ? { sheetAudit: patch.sheetAudit } : {}),
           sheetSync: patch.sheetSync !== undefined ? patch.sheetSync : get().sheetSync,
           opsReady: true,
           staffBlocked: null,
@@ -794,7 +777,7 @@ export const useAppStore = create<State>()(
       name: "umc-xlnt-flow-v4",
       skipHydration: true,
       partialize: (s) => {
-        const { opsReady: _o, staffBlocked: _b, sheetSync: _sh, hydrateOps: _h, ...rest } = s;
+        const { opsReady: _o, staffBlocked: _b, sheetSync: _sh, sheetAudit: _sa, hydrateOps: _h, ...rest } = s;
         return rest;
       },
     },
