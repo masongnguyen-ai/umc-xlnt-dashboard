@@ -6,6 +6,7 @@
  *
  * Import từ createServerFn / loader / *.server.ts. Không import từ client.
  */
+import { createPrivateKey } from "node:crypto";
 import { google, type sheets_v4 } from "googleapis";
 
 /** Não chính — CSDL vận hành trạm XLNT. */
@@ -63,13 +64,35 @@ function env(name: string): string {
   return v;
 }
 
-/** PEM trong .env thường ghi \\n — đổi thành xuống dòng thật. */
+/**
+ * PEM trên Vercel hay bị dán một dòng, `\\n` thoát đôi, hoặc mất xuống dòng.
+ * OpenSSL 3 (Node 22) khi đó báo `DECODER routines::unsupported`.
+ */
 export function normalizePrivateKey(raw: string): string {
-  let key = raw.trim();
-  if ((key.startsWith('"') && key.endsWith('"')) || (key.startsWith("'") && key.endsWith("'"))) {
+  let key = raw.trim().replace(/^\uFEFF/, "");
+  if (key.startsWith('"') && key.endsWith('"')) {
+    try {
+      key = JSON.parse(key) as string;
+    } catch {
+      key = key.slice(1, -1);
+    }
+  } else if (key.startsWith("'") && key.endsWith("'")) {
     key = key.slice(1, -1);
   }
-  return key.replace(/\\n/g, "\n");
+  for (let i = 0; i < 4 && key.includes("\\n"); i++) key = key.replace(/\\n/g, "\n");
+  key = key.replace(/\\r/g, "").replace(/\r\n/g, "\n").replace(/\r/g, "\n");
+
+  const begin = key.match(/-----BEGIN ([A-Z0-9 ]+KEY)-----/);
+  const end = key.match(/-----END ([A-Z0-9 ]+KEY)-----/);
+  if (!begin?.[1] || !end?.[1] || begin[1] !== end[1]) return key;
+
+  const start = key.indexOf(begin[0]) + begin[0].length;
+  const stop = key.lastIndexOf(end[0]);
+  if (stop <= start) return key;
+  const body = key.slice(start, stop).replace(/[^A-Za-z0-9+/=]/g, "");
+  if (!body) return key;
+  const wrapped = body.match(/.{1,64}/g)?.join("\n") ?? body;
+  return `${begin[0]}\n${wrapped}\n${end[0]}\n`;
 }
 
 function assertId(spreadsheetId: string): string {
@@ -127,8 +150,16 @@ function fullRange(range: string): string {
 function getAuth() {
   const email = env("GOOGLE_SERVICE_ACCOUNT_EMAIL");
   const key = normalizePrivateKey(env("GOOGLE_PRIVATE_KEY"));
-  if (!key.includes("BEGIN PRIVATE KEY") || !key.includes("END PRIVATE KEY")) {
+  if (!/BEGIN [A-Z0-9 ]+KEY/.test(key) || !/END [A-Z0-9 ]+KEY/.test(key)) {
     throw new GoogleSheetsError("GOOGLE_PRIVATE_KEY không phải PEM đầy đủ (thiếu BEGIN/END PRIVATE KEY).");
+  }
+  try {
+    createPrivateKey(key);
+  } catch (err) {
+    throw new GoogleSheetsError(
+      "GOOGLE_PRIVATE_KEY không đọc được (PEM). Dán lại PKCS#8, xuống dòng ghi \\n.",
+      { cause: err },
+    );
   }
   return new google.auth.GoogleAuth({
     credentials: {
@@ -162,6 +193,12 @@ function wrap(err: unknown, action: string): never {
   logErr(action, err);
   if (err instanceof GoogleSheetsError) throw err;
   const detail = err instanceof Error ? err.message : String(err);
+  if (/DECODER routines::unsupported|error:1E08010C/i.test(detail)) {
+    throw new GoogleSheetsError(
+      `${action}: khóa GOOGLE_PRIVATE_KEY trên máy chủ không đọc được (PEM). Dán lại PKCS#8, xuống dòng ghi \\n.`,
+      { cause: err },
+    );
+  }
   throw new GoogleSheetsError(`${action}: ${detail}`, { cause: err });
 }
 
