@@ -34,11 +34,13 @@ function rim(fromH: number, toH: number, r: number) {
 export function DayNightClock({
   day,
   night,
+  prev,
 }: {
   day: number | null | undefined;
   night: number | null | undefined;
   dayNote?: string;
   nightNote?: string;
+  prev?: string;
 }) {
   const faceId = useId();
   const [now, setNow] = useState(() => new Date());
@@ -55,8 +57,35 @@ export function DayNightClock({
   const secPt = pt(s / 5, 72);
 
   return (
-    <div className="dn-clock shrink-0">
-      <svg viewBox="0 0 200 200" className="dn-clock-svg shrink-0" preserveAspectRatio="xMidYMid meet" aria-hidden>
+    <div className="dn-clock">
+      <div className="dn-clock-legend">
+        <div>
+          <div className="dn-clock-leg-label">
+            <span className="dn-clock-swatch dn-clock-swatch-day" />
+            Ban ngày
+          </div>
+          <div className="dn-clock-leg-val">
+            {fmtNum(day)} <span>m³</span>
+          </div>
+        </div>
+        <div>
+          <div className="dn-clock-leg-label">
+            <span className="dn-clock-swatch dn-clock-swatch-night" />
+            Ban đêm
+          </div>
+          <div className="dn-clock-leg-val">
+            {fmtNum(night)} <span>m³</span>
+          </div>
+        </div>
+        {prev ? (
+          <div className="dn-clock-prev">
+            {prev.split("\n").map((line) => (
+              <div key={line}>{line}</div>
+            ))}
+          </div>
+        ) : null}
+      </div>
+      <svg viewBox="0 0 200 200" className="dn-clock-svg" preserveAspectRatio="xMidYMid meet" aria-hidden>
         <defs>
           <radialGradient id={faceId} cx="50%" cy="38%" r="65%">
             <stop offset="0%" stopColor="var(--color-surface2)" />
@@ -97,26 +126,6 @@ export function DayNightClock({
         <line x1={CX} y1={CY} x2={secPt.x} y2={secPt.y} className="dn-hand-s" />
         <circle cx={CX} cy={CY} r="3.5" className="dn-cap" />
       </svg>
-      <div className="dn-clock-legend">
-        <div>
-          <div className="dn-clock-leg-label">
-            <span className="dn-clock-swatch dn-clock-swatch-day" />
-            Ban ngày
-          </div>
-          <div className="dn-clock-leg-val">
-            {fmtNum(day)} <span>m³</span>
-          </div>
-        </div>
-        <div>
-          <div className="dn-clock-leg-label">
-            <span className="dn-clock-swatch dn-clock-swatch-night" />
-            Ban đêm
-          </div>
-          <div className="dn-clock-leg-val">
-            {fmtNum(night)} <span>m³</span>
-          </div>
-        </div>
-      </div>
     </div>
   );
 }

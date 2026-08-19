@@ -78,44 +78,36 @@ export function Kpi({
       >
         {label}
       </div>
-      <div
-        className={cn(
-          "mt-2 min-w-0",
-          clock && "flex flex-col gap-3 lg:flex-row lg:items-center lg:gap-4",
-        )}
-      >
-        <div className="min-w-0 flex-1">
-          <div
-            className={cn(
-              "kpi-value inline-flex items-baseline gap-[0.2em]",
-              size === "hero" && "kpi-value--hero text-[2.05rem] leading-none sm:text-[2.45rem]",
-              valueTone,
-            )}
-          >
-            {value}
-            {unit ? <span className="kpi-unit">{unit}</span> : null}
-            {tag ? <span className="kpi-tag">- {tag}</span> : null}
-          </div>
-          {hint ? <div className="kpi-hint mt-1">{hint}</div> : null}
+      <div className="mt-2 min-w-0">
+        <div
+          className={cn(
+            "kpi-value inline-flex w-full min-w-0 items-baseline gap-[0.2em]",
+            size === "hero" && "kpi-value--hero text-[2.05rem] leading-none sm:text-[2.45rem]",
+            valueTone,
+          )}
+        >
+          {value}
+          {unit ? <span className="kpi-unit">{unit}</span> : null}
+          {tag ? <span className="kpi-tag">- {tag}</span> : null}
         </div>
-        {clock ? (
-          <DayNightClock day={clock.day} night={clock.night} />
-        ) : parts?.length ? (
-          <div className="mt-2 grid grid-cols-2 gap-2">
-            {parts.map((p) => (
-              <div key={p.label} className="rounded-lg bg-mint px-2 py-1.5">
-                <div className={cn(size === "hero" ? "kpi-label--part" : "kpi-label kpi-label--sm")}>{p.label}</div>
-                <div className={cn("kpi-value kpi-value--sm mt-0.5", valueTone)}>
-                  {p.value}
-                  {p.unit ? <span className="kpi-unit">{p.unit}</span> : null}
-                </div>
-                {p.note ? <div className="kpi-prev mt-0.5">{p.note}</div> : null}
-              </div>
-            ))}
-          </div>
-        ) : null}
+        {hint ? <div className="kpi-hint mt-1">{hint}</div> : null}
       </div>
-      <PrevBlock prev={prev} />
+      {clock ? <DayNightClock day={clock.day} night={clock.night} prev={prev} /> : null}
+      {!clock && parts?.length ? (
+        <div className="mt-2 grid grid-cols-2 gap-2">
+          {parts.map((p) => (
+            <div key={p.label} className="rounded-lg bg-mint px-2 py-1.5">
+              <div className={cn(size === "hero" ? "kpi-label--part" : "kpi-label kpi-label--sm")}>{p.label}</div>
+              <div className={cn("kpi-value kpi-value--sm mt-0.5", valueTone)}>
+                {p.value}
+                {p.unit ? <span className="kpi-unit">{p.unit}</span> : null}
+              </div>
+              {p.note ? <div className="kpi-prev mt-0.5">{p.note}</div> : null}
+            </div>
+          ))}
+        </div>
+      ) : null}
+      {!clock ? <PrevBlock prev={prev} /> : null}
       {max != null || min != null || avg != null ? (
         <div className="kpi-stat-row mt-auto border-t border-border pt-2">
           {max != null ? (

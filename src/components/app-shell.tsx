@@ -329,7 +329,7 @@ export function AppShell() {
             </Button>
           </div>
         </header>
-        <div className="grid grid-cols-2 items-stretch gap-3 px-4 pt-4 lg:hidden">
+        <div className="grid grid-cols-2 items-stretch gap-1.5 px-4 pt-2 lg:hidden">
           {QUICK.map((item) => {
             const allowed = can(role, item.action);
             const Icon = ICONS[item.to] ?? Gauge;
@@ -339,12 +339,12 @@ export function AppShell() {
               return (
                 <div
                   key={item.to}
-                  className="flex h-full min-h-[5.75rem] flex-col justify-between rounded-lg border border-border bg-surface p-3 opacity-40 shadow-panel"
+                  className="flex h-full min-h-0 flex-col justify-between gap-1 rounded-lg border border-border bg-surface px-2 py-1.5 opacity-40 shadow-panel"
                 >
-                  <span className="icon-mint size-10">
-                    <Icon className="size-5" strokeWidth={1.75} />
+                  <span className="icon-mint size-7">
+                    <Icon className="size-[18px]" strokeWidth={1.75} />
                   </span>
-                  <span className="text-sm font-semibold">{item.label}</span>
+                  <span className="text-[12px] font-semibold leading-tight">{item.label}</span>
                 </div>
               );
             }
@@ -353,29 +353,29 @@ export function AppShell() {
                 key={item.to}
                 to={item.to}
                 className={cn(
-                  "relative flex h-full min-h-[5.75rem] flex-col justify-between rounded-lg border p-3 shadow-panel transition-colors",
+                  "relative flex h-full min-h-0 flex-col justify-between gap-1 rounded-lg border px-2 py-1.5 shadow-panel transition-colors",
                   active ? "border-accent bg-mint" : "border-border bg-surface hover:bg-mint/60",
                 )}
               >
-                <span className="icon-mint size-10">
-                  <Icon className="size-5" strokeWidth={1.75} />
+                <span className="icon-mint size-7">
+                  <Icon className="size-[18px]" strokeWidth={1.75} />
                 </span>
-                {badge > 0 && item.badgeText ? (
+                {badge > 0 ? (
                   <span
                     className={cn(
-                      "absolute right-2 top-2 max-w-[4.75rem] rounded px-1 py-0.5 text-center text-[9px] font-semibold leading-tight tabular-nums",
+                      "absolute right-1.5 top-1.5 rounded px-1 py-px text-center text-[9px] font-semibold leading-none tabular-nums",
                       item.warn ? "bg-bad/15 text-bad" : "bg-accent/15 text-accent",
                     )}
                   >
-                    {item.badgeText}
+                    {item.to === "/app/canhbao" ? badge : item.badgeText}
                   </span>
                 ) : null}
-                <span className="text-sm font-semibold">{item.label}</span>
+                <span className="text-[12px] font-semibold leading-tight">{item.label}</span>
               </Link>
             );
           })}
         </div>
-        <main className="flex-1 px-4 py-5 sm:px-6">
+        <main className="flex-1 px-4 pt-2 pb-5 sm:px-6 lg:py-5">
           {locked ? (
             <div className="mx-auto max-w-md py-20 text-center">
               <h2 className="text-lg font-semibold">Không có quyền</h2>

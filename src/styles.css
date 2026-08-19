@@ -322,24 +322,19 @@ html[data-theme="dark"] {
   }
 
   .dn-clock {
-    display: flex;
-    flex-direction: row;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 96px;
     align-items: center;
-    gap: 10px;
-    margin-top: 0;
+    column-gap: 12px;
+    width: 100%;
+    margin-top: 12px;
   }
 
   .dn-clock-svg {
-    width: 72px;
-    height: 72px;
+    width: 96px;
+    height: 96px;
     display: block;
-  }
-
-  @media (min-width: 1024px) {
-    .dn-clock-svg {
-      width: 96px;
-      height: 96px;
-    }
+    justify-self: center;
   }
 
   .dn-bezel {
@@ -464,6 +459,20 @@ html[data-theme="dark"] {
     white-space: normal;
     overflow: visible;
     line-height: 1.3;
+  }
+
+  .dn-clock-prev {
+    color: var(--color-muted);
+    font-family: var(--font-mono);
+    font-size: 0.68rem;
+    font-variant-numeric: tabular-nums;
+    line-height: 1.35;
+  }
+
+  .kpi-prev {
+    color: var(--color-muted);
+    font-size: 0.72rem;
+    line-height: 1.35;
   }
 }
 

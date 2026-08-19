@@ -218,7 +218,7 @@ function TheoDoi() {
   ];
 
   return (
-    <div className="mx-auto max-w-6xl space-y-4">
+    <div className="mx-auto max-w-6xl space-y-2">
       <div
         className={cn(
           "relative overflow-hidden rounded-lg border border-border bg-surface shadow-panel",
@@ -236,30 +236,28 @@ function TheoDoi() {
             lastTone === "neutral" && "bg-accent",
           )}
         />
-        <div className="grid grid-cols-3 items-end divide-x divide-border/70 pl-1">
-          <div className="flex items-end gap-2 px-3 py-3">
-            <span
-              className={cn(
-                "mb-1.5 size-2 shrink-0 rounded-full",
-                lastTone === "ok" && "bg-ok",
-                lastTone === "warn" && "bg-warn",
-                lastTone === "bad" && "bg-bad",
-                lastTone === "neutral" && "bg-muted",
-              )}
-            />
-            <div className="min-w-0">
-              <div className="text-[10px] font-semibold uppercase tracking-[0.14em] text-muted">Ngày</div>
-              <div className="banner-value mt-1.5 justify-start text-[1.65rem] sm:text-[2rem]">
-                {last?.ngay?.slice(0, 5) ?? "–"}
-              </div>
-              <div className="text-[11px] text-muted">{last?.thu}</div>
-            </div>
-          </div>
-          <div className="min-w-0 px-2 py-3 text-center sm:px-3">
-            <div className="banner-title tracking-[0.16em]">Nước thải</div>
+        <div className="flex items-center gap-2 px-3 py-1.5 pl-4">
+          <span
+            className={cn(
+              "size-2 shrink-0 rounded-full",
+              lastTone === "ok" && "bg-ok",
+              lastTone === "warn" && "bg-warn",
+              lastTone === "bad" && "bg-bad",
+              lastTone === "neutral" && "bg-muted",
+            )}
+          />
+          <p className="min-w-0 flex-1 truncate text-[13px] leading-none">
+            <span className="text-muted">Ngày gần nhất</span>
+            <span className="font-semibold text-fg"> {last?.ngay?.slice(0, 5) ?? "–"}</span>
+            <span className="text-muted"> · {last?.thu}</span>
+          </p>
+        </div>
+        <div className="grid grid-cols-2 items-stretch gap-2 px-3 pb-2">
+          <div className="grid grid-rows-[auto_auto_auto] overflow-hidden rounded-lg bg-mint px-2.5 py-2">
+            <div className="banner-title text-[11px] tracking-[0.12em]">Nước thải</div>
             <div
               className={cn(
-                "banner-value mt-1.5 text-[1.65rem] sm:text-[2rem]",
+                "banner-value mt-1 justify-start text-[1.45rem] leading-none",
                 lastTone === "ok" && "text-ok",
                 lastTone === "warn" && "text-warn",
                 lastTone === "bad" && "text-bad",
@@ -267,34 +265,24 @@ function TheoDoi() {
             >
               {fmtNum(last?.llnt)} <span className="kpi-unit">m³</span>
             </div>
+            <div className="mt-1 whitespace-nowrap text-[clamp(8px,2.4vw,11px)] leading-none tabular-nums tracking-tight text-muted">
+              Hệ 600: {fmtNum(last?.ll600)} m³ · Hệ 220: {fmtNum(last?.ll220)} m³
+            </div>
           </div>
-          <div className="min-w-0 px-2 py-3 text-center sm:px-3">
-            <div className="banner-title tracking-[0.16em]">Nước cấp</div>
-            <div className="banner-value mt-1.5 text-[1.65rem] sm:text-[2rem]">
+          <div className="grid grid-rows-[auto_auto_auto] overflow-hidden rounded-lg bg-mint px-2.5 py-2">
+            <div className="banner-title text-[11px] tracking-[0.12em]">Nước cấp</div>
+            <div className="banner-value mt-1 justify-start text-[1.45rem] leading-none">
               {fmtNum(last?.llcap)} <span className="kpi-unit">m³</span>
             </div>
-          </div>
-        </div>
-        <div className="grid grid-cols-2 gap-2 px-3 pb-2">
-          <div className="rounded-lg bg-mint px-2.5 py-2 text-[11px] leading-snug">
-            <div className="font-semibold text-muted">Hệ 600 / 220</div>
-            <div className="mt-0.5 flex flex-wrap items-baseline gap-x-2 whitespace-nowrap font-mono tabular-nums">
-              <span>600 {fmtNum(last?.ll600)} m³</span>
-              <span>220 {fmtNum(last?.ll220)} m³</span>
-            </div>
-          </div>
-          <div className="rounded-lg bg-mint px-2.5 py-2 text-[11px] leading-snug">
-            <div className="font-semibold text-muted">Khu A / B</div>
-            <div className="mt-0.5 flex flex-wrap items-baseline gap-x-2 whitespace-nowrap font-mono tabular-nums">
-              <span>A {fmtNum(last?.llcapA)} m³</span>
-              <span>B {fmtNum(last?.llcapB)} m³</span>
+            <div className="mt-1 whitespace-nowrap text-[clamp(8px,2.4vw,11px)] leading-none tabular-nums tracking-tight text-muted">
+              Khu A: {fmtNum(last?.llcapA)} m³ · Khu B: {fmtNum(last?.llcapB)} m³
             </div>
           </div>
         </div>
         <Link
           to="/app/canhbao"
           className={cn(
-            "flex min-h-11 items-center border-t px-3 py-2 text-[12px] font-semibold leading-snug",
+            "flex items-center border-t px-3 py-1.5 text-[12px] font-semibold leading-snug",
             last?.cb && last.cb !== "OK" ? "border-bad/20 text-bad" : "border-ok/20 text-ok",
           )}
         >
@@ -303,12 +291,12 @@ function TheoDoi() {
       </div>
 
       <div className="overflow-hidden rounded-lg border border-border bg-surface">
-        <div className="flex gap-1 overflow-x-auto p-1.5 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+        <div className="flex flex-nowrap items-center gap-1 overflow-x-auto p-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
           {chips.map((c) => (
             <Button
               key={c.id}
               size="sm"
-              className="h-11 min-h-11 shrink-0"
+              className="h-9 min-h-9 shrink-0 px-2.5"
               variant={range === c.id ? "default" : "secondary"}
               onClick={() => setRange(c.id)}
             >
@@ -336,12 +324,12 @@ function TheoDoi() {
             )}
           </Button>
         </div>
-        <div className="hidden border-t border-border px-3 py-1.5 lg:block">
+        <div className="hidden border-t border-border px-3 py-1 lg:block">
           <a href={FLOW_SHEET_HTML} target="_blank" rel="noreferrer" className="text-xs text-muted underline-offset-2 hover:text-fg hover:underline">
             Mở sheet gốc
           </a>
         </div>
-        <div className="border-t border-border px-3 py-1.5">
+        <div className="border-t border-border px-3 py-1">
           <LiveSyncBar />
         </div>
       </div>
