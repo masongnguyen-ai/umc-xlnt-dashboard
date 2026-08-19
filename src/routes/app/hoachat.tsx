@@ -16,7 +16,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import { todayISO } from "@/lib/format";
-import { persistChemTx } from "@/lib/ops/client";
+import { persistChemDoseChot, persistChemImportChot, persistChemTx } from "@/lib/ops/client";
+import { ApprovalInbox } from "@/components/approval-inbox";
+import { pendingDoses, pendingImports, pendingRestocks } from "@/lib/approval";
 import { cn } from "@/lib/utils";
 import { ChemSyncBar } from "@/components/chem-sync-bar";
 import { ChemStockLedger } from "@/components/chem-stock-ledger";
@@ -42,6 +44,12 @@ function HoaChat() {
   const chemicals = useAppStore((s) => s.chemicals);
   const stocks = useAppStore((s) => s.stocks);
   const transactions = useAppStore((s) => s.transactions);
+  const doses = useAppStore((s) => s.chemDoses) ?? [];
+  const confirms = useAppStore((s) => s.chemConfirms) ?? [];
+  const restocks = useAppStore((s) => s.chemRestocks) ?? [];
+  const reviewChemDose = useAppStore((s) => s.reviewChemDose);
+  const reviewChemImport = useAppStore((s) => s.reviewChemImport);
+  const reviewChemRestock = useAppStore((s) => s.reviewChemRestock);
   const writable = can(role, "write_hoachat");
 
   const [open, setOpen] = useState(false);
@@ -60,6 +68,26 @@ function HoaChat() {
   const nhap = nextImport(lookup);
   const baotri = nextMaintenance(lookup);
   const inContract = lookup >= CHEM_PLAN.contractFrom && lookup <= CHEM_PLAN.contractTo;
+  const pendingItems = [
+    ...pendingDoses(doses).map((d) => ({
+      id: `dose:${d.iso}`,
+      kind: "Liều đã châm",
+      title: fmtDate(d.iso),
+      detail: `${d.actor} · mật rỉ ${fmtNum(d.qty.matri)} · NaOH ${fmtNum(d.qty.naoh)}`,
+    })),
+    ...pendingImports(confirms).map((c) => ({
+      id: `nhap:${c.thang}`,
+      kind: "Nhập xe",
+      title: c.thang,
+      detail: `${c.actor} · ${c.receipts.length} ngày`,
+    })),
+    ...pendingRestocks(restocks).map((r) => ({
+      id: `rst:${r.id}`,
+      kind: "Điều động",
+      title: r.reason || "Điều động hàng",
+      detail: `${r.actor} · mật rỉ ${fmtNum(r.qty.matri)}`,
+    })),
+  ];
 
   const monthUsed = useMemo(() => {
     if (!month) return null;
@@ -71,6 +99,29 @@ function HoaChat() {
   return (
     <div className="mx-auto max-w-6xl space-y-6">
       <ChemSyncBar />
+      <ApprovalInbox
+        title="Chờ duyệt — hóa chất"
+        items={pendingItems}
+        canReview={can(role, "approve_hoachat")}
+        onReview={async (id, action, note) => {
+          if (id.startsWith("dose:")) {
+            const iso = id.slice(5);
+            const r = reviewChemDose(iso, action, note, email);
+            if (r.ok && action === "CHOT") await persistChemDoseChot(iso);
+            return r;
+          }
+          if (id.startsWith("nhap:")) {
+            const thang = id.slice(5);
+            const r = reviewChemImport(thang, action, note, email);
+            if (r.ok && action === "CHOT") await persistChemImportChot(thang);
+            return r;
+          }
+          if (id.startsWith("rst:")) {
+            return reviewChemRestock(id.slice(4), action, note, email);
+          }
+          return { ok: false, error: "Không rõ loại phiếu." };
+        }}
+      />
       <div className="flex items-start justify-between gap-3">
         <div>
           <p className="text-sm text-muted">

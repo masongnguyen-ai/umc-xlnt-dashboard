@@ -95,8 +95,9 @@ export function ChemStockLedger({
   };
 
   const total = sumReceipts(receipts);
-  const locked = Boolean(edit?.confirm?.locked);
-  const canEdit = writable && (!locked || isManager);
+  const locked = Boolean(edit?.confirm?.locked) || edit?.confirm?.status === "DA_CHOT";
+  const pendingReview = edit?.confirm?.status === "CHO_DUYET";
+  const canEdit = writable && !pendingReview && (!locked || isManager);
 
   const save = async (lock: boolean) => {
     if (!edit) return;
@@ -109,7 +110,13 @@ export function ChemStockLedger({
     });
     if (!r.ok) toast.error(r.error);
     else {
-      toast.success(lock ? "Đã chốt trên máy chủ. Kỳ sau chạy từ tổng nhập này." : "Đã lưu nháp trên máy chủ. Chưa khóa kỳ.");
+      toast.success(
+        lock
+          ? isManager
+            ? "Đã chốt trên máy chủ. Kỳ sau chạy từ tổng nhập này."
+            : "Đã gửi quản lý. Chưa vào tồn kho đến khi chốt."
+          : "Đã lưu nháp. Chưa khóa kỳ.",
+      );
       setEdit(null);
     }
   };
@@ -376,7 +383,7 @@ export function ChemStockLedger({
               </div>
 
               {canEdit ? (
-                confirmLock ? (
+                confirmLock && isManager ? (
                   <div className="relative overflow-hidden rounded-lg border border-border bg-bg p-3 pl-4">
                     <span className="absolute inset-y-0 left-0 w-[3px] bg-bad" />
                     <p className="flex items-center gap-2 text-sm font-semibold text-bad">
@@ -400,18 +407,24 @@ export function ChemStockLedger({
                     <Button type="button" variant="secondary" className="min-h-11 flex-1" onClick={() => void save(false)}>
                       Lưu nháp
                     </Button>
-                    <Button
-                      type="button"
-                      variant="destructive"
-                      className="min-h-11 flex-1"
-                      onClick={() => setConfirmLock(true)}
-                    >
-                      Chốt kỳ này
-                    </Button>
+                    {isManager ? (
+                      <Button
+                        type="button"
+                        variant="destructive"
+                        className="min-h-11 flex-1"
+                        onClick={() => setConfirmLock(true)}
+                      >
+                        Chốt kỳ này
+                      </Button>
+                    ) : (
+                      <Button type="button" className="min-h-11 flex-1" onClick={() => void save(true)}>
+                        Gửi quản lý
+                      </Button>
+                    )}
                   </div>
                 )
               ) : (
-                <p className="text-xs text-dim">Đã chốt. Chỉ quản lý được sửa lại.</p>
+                <p className="text-xs text-dim">Đã chốt. Chỉ quản lý được mở lại.</p>
               )}
             </div>
           ) : null}
@@ -422,6 +435,14 @@ export function ChemStockLedger({
 }
 
 function StatusBadge({ c }: { c: ChemLedgerCycle }) {
+  if (c.confirm?.status === "CHO_DUYET") {
+    return (
+      <Badge variant="warn" className="gap-1">
+        <Clock className="size-3" strokeWidth={2} />
+        Chờ duyệt
+      </Badge>
+    );
+  }
   if (c.status === "da-chot") {
     return (
       <Badge variant="ok" className="gap-1">

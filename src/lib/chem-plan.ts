@@ -1,5 +1,6 @@
 import type { ChemDoseLog, ChemImportConfirm, ChemQty, ChemReceipt } from "./types";
 import raw from "./chem-plan-data.json";
+import { isChemSettled } from "./approval";
 
 export type { ChemQty, ChemImportConfirm, ChemReceipt, ChemDoseLog };
 
@@ -269,7 +270,7 @@ export function usageInRange(from: string, to: string, doses: ChemDoseLog[]) {
   for (const d of CHEM_PLAN.days) {
     if (d.iso < from || d.iso > to) continue;
     const log = byIso.get(d.iso);
-    if (log) {
+    if (log && isChemSettled(log)) {
       qty = addQty(qty, log.qty);
       actualDays += 1;
     } else {
@@ -288,10 +289,11 @@ export function buildChemLedger(
   let carry = ZERO_QTY;
   return CHEM_CYCLES.map((c) => {
     const raw = confirms.find((x) => x.thang === c.thang);
-    const confirm = raw ? normalizeConfirm(raw, c.importIso) : undefined;
-    const receipts = confirm?.receipts ?? [];
-    const locked = Boolean(confirm?.locked);
-    const nhap = locked || receipts.length ? (confirm?.qty ?? c.plannedNhap) : c.plannedNhap;
+    const official = raw && isChemSettled(raw) ? normalizeConfirm(raw, c.importIso) : undefined;
+    const display = raw ? normalizeConfirm(raw, c.importIso) : undefined;
+    const receipts = display?.receipts ?? [];
+    const locked = Boolean(official?.locked);
+    const nhap = official ? (official.qty ?? c.plannedNhap) : c.plannedNhap;
     const range = cycleDayRange(c);
     const used = usageInRange(range.from, range.to, doses);
     const use = used.qty;
@@ -299,6 +301,7 @@ export function buildChemLedger(
     const close = subQty(addQty(open, nhap), use);
     let status: ChemLedgerStatus = "du-kien";
     if (locked) status = "da-chot";
+    else if (raw?.status === "CHO_DUYET") status = "dang-nhap";
     else if (receipts.length) status = "dang-nhap";
     else if (today >= c.importIso) status = "cho-chot";
     carry = close;
@@ -309,7 +312,7 @@ export function buildChemLedger(
       use,
       close,
       status,
-      confirm,
+      confirm: display,
       receipts,
       actualDays: used.actualDays,
       plannedDays: used.plannedDays,
@@ -328,7 +331,7 @@ export function liveChemStock(confirms: ChemImportConfirm[], doses: ChemDoseLog[
   let stock = ZERO_QTY;
   for (const c of CHEM_CYCLES) {
     const raw = confirms.find((x) => x.thang === c.thang);
-    const confirm = raw ? normalizeConfirm(raw, c.importIso) : undefined;
+    const confirm = raw && isChemSettled(raw) ? normalizeConfirm(raw, c.importIso) : undefined;
     const receipts = confirm?.receipts ?? [];
     if (receipts.length) {
       for (const r of receipts) {

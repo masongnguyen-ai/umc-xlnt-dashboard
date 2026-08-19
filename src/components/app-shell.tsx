@@ -24,6 +24,7 @@ import { useAppStore } from "@/lib/store";
 import { can, NAV_ITEMS, type Action } from "@/lib/permissions";
 import { ROLE_LABEL } from "@/lib/format";
 import type { Role } from "@/lib/types";
+import { openAlerts7d, pendingChemCount, pendingLogs } from "@/lib/approval";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent } from "@/components/ui/sheet";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -95,8 +96,10 @@ export function AppShell() {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const users = useAppStore((s) => s.users);
   const alerts = useAppStore((s) => s.alerts);
-  const chemicals = useAppStore((s) => s.chemicals);
-  const stocks = useAppStore((s) => s.stocks);
+  const logs = useAppStore((s) => s.logs);
+  const chemDoses = useAppStore((s) => s.chemDoses) ?? [];
+  const chemConfirms = useAppStore((s) => s.chemConfirms) ?? [];
+  const chemRestocks = useAppStore((s) => s.chemRestocks) ?? [];
   const staffBlocked = useAppStore((s) => s.staffBlocked);
   const opsReady = useAppStore((s) => s.opsReady);
   useSheetSync(ready);
@@ -180,17 +183,22 @@ export function AppShell() {
   }
 
   const role: Role = profile?.Vai_tro ?? "CA_TRUC";
-  const openAlerts = alerts.filter((a) => a.Trang_thai === "MOI" || a.Trang_thai === "DA_XEM").length;
-  const lowStock = chemicals.filter((c) => {
-    const ton = stocks[c.Ma_hoa_chat] ?? 0;
-    return ton === 0 || (c.Nguong_canh_bao_ton != null && ton <= c.Nguong_canh_bao_ton);
-  }).length;
+  const alertOpen7d = openAlerts7d(alerts);
+  const pendingNhatky = pendingLogs(logs).length;
+  const pendingHoachat = pendingChemCount(chemDoses, chemConfirms, chemRestocks);
 
-  const QUICK: { to: string; action: Action; label: string; badge?: number; warn?: boolean }[] = [
+  const QUICK: { to: string; action: Action; label: string; badge?: number; badgeText?: string; warn?: boolean }[] = [
     { to: "/app/theodoi", action: "theodoi", label: "Theo dõi" },
-    { to: "/app/canhbao", action: "canhbao", label: "Cảnh báo", badge: openAlerts, warn: true },
-    { to: "/app/nhatky", action: "nhatky", label: "Nhật ký" },
-    { to: "/app/hoachat", action: "hoachat", label: "Hóa chất", badge: lowStock, warn: true },
+    {
+      to: "/app/canhbao",
+      action: "canhbao",
+      label: "Cảnh báo",
+      badge: alertOpen7d,
+      badgeText: alertOpen7d ? `${alertOpen7d} mở` : undefined,
+      warn: true,
+    },
+    { to: "/app/nhatky", action: "nhatky", label: "Nhật ký", badge: pendingNhatky, badgeText: pendingNhatky ? `Chờ duyệt (${pendingNhatky})` : undefined, warn: true },
+    { to: "/app/hoachat", action: "hoachat", label: "Hóa chất", badge: pendingHoachat, badgeText: pendingHoachat ? `Chờ duyệt (${pendingHoachat})` : undefined, warn: true },
   ];
 
   const nav = (
@@ -232,9 +240,17 @@ export function AppShell() {
               <Icon className="size-3.5" strokeWidth={1.75} />
             </span>
             <span className="flex-1">{item.label}</span>
-            {item.to === "/app/canhbao" && openAlerts > 0 ? (
-              <span className="min-w-5 rounded-full bg-bad px-1.5 py-0.5 text-center text-[10px] font-bold tabular-nums leading-none text-white">
-                {openAlerts}
+            {item.to === "/app/canhbao" && alertOpen7d > 0 ? (
+              <span className="rounded bg-bad/15 px-1.5 py-0.5 text-center text-[10px] font-semibold tabular-nums leading-none text-bad">
+                {alertOpen7d} mở
+              </span>
+            ) : item.to === "/app/nhatky" && pendingNhatky > 0 ? (
+              <span className="rounded bg-warn/20 px-1.5 py-0.5 text-center text-[10px] font-semibold tabular-nums leading-none text-warn">
+                Chờ duyệt ({pendingNhatky})
+              </span>
+            ) : item.to === "/app/hoachat" && pendingHoachat > 0 ? (
+              <span className="rounded bg-warn/20 px-1.5 py-0.5 text-center text-[10px] font-semibold tabular-nums leading-none text-warn">
+                Chờ duyệt ({pendingHoachat})
               </span>
             ) : null}
           </Link>
@@ -313,7 +329,7 @@ export function AppShell() {
             </Button>
           </div>
         </header>
-        <div className="grid grid-cols-2 gap-3 px-4 pt-4 lg:hidden">
+        <div className="grid grid-cols-2 items-stretch gap-3 px-4 pt-4 lg:hidden">
           {QUICK.map((item) => {
             const allowed = can(role, item.action);
             const Icon = ICONS[item.to] ?? Gauge;
@@ -323,7 +339,7 @@ export function AppShell() {
               return (
                 <div
                   key={item.to}
-                  className="flex min-h-[5.5rem] flex-col justify-between rounded-lg border border-border bg-surface p-3 opacity-40 shadow-panel"
+                  className="flex h-full min-h-[5.75rem] flex-col justify-between rounded-lg border border-border bg-surface p-3 opacity-40 shadow-panel"
                 >
                   <span className="icon-mint size-10">
                     <Icon className="size-5" strokeWidth={1.75} />
@@ -337,21 +353,21 @@ export function AppShell() {
                 key={item.to}
                 to={item.to}
                 className={cn(
-                  "relative flex min-h-[5.5rem] flex-col justify-between rounded-lg border p-3 shadow-panel transition-colors",
+                  "relative flex h-full min-h-[5.75rem] flex-col justify-between rounded-lg border p-3 shadow-panel transition-colors",
                   active ? "border-accent bg-mint" : "border-border bg-surface hover:bg-mint/60",
                 )}
               >
                 <span className="icon-mint size-10">
                   <Icon className="size-5" strokeWidth={1.75} />
                 </span>
-                {badge > 0 ? (
+                {badge > 0 && item.badgeText ? (
                   <span
                     className={cn(
-                      "absolute right-3 top-3 min-w-6 rounded-full px-1.5 py-0.5 text-center text-[11px] font-bold tabular-nums leading-none",
-                      item.warn ? "bg-bad text-white" : "bg-accent text-accent-fg",
+                      "absolute right-2 top-2 max-w-[4.75rem] rounded px-1 py-0.5 text-center text-[9px] font-semibold leading-tight tabular-nums",
+                      item.warn ? "bg-bad/15 text-bad" : "bg-accent/15 text-accent",
                     )}
                   >
-                    {badge}
+                    {item.badgeText}
                   </span>
                 ) : null}
                 <span className="text-sm font-semibold">{item.label}</span>

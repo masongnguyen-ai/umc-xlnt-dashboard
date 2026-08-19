@@ -20,6 +20,8 @@ export type Action =
   | "write_quantri"
   | "update_alert"
   | "approve_nhatky"
+  | "approve_hoachat"
+  | "approve_thietbi"
   | "approve_baocao"
   | "view_audit"
   | "write_backup";
@@ -63,6 +65,8 @@ const MATRIX: Record<Role, Action[]> = {
     "write_quantri",
     "update_alert",
     "approve_nhatky",
+    "approve_hoachat",
+    "approve_thietbi",
     "approve_baocao",
     "view_audit",
     "write_backup",

@@ -1,7 +1,9 @@
 export type Role = "QUAN_LY" | "NHA_THAU" | "CA_TRUC";
 export type UserStatus = "HOAT_DONG" | "TAM_KHOA" | "NGUNG";
 export type Shift = "SANG" | "CHIEU";
-export type LogStatus = "NHAP" | "CHO_DUYET" | "DA_DUYET" | "YEU_CAU_BO_SUNG" | "KHOA";
+export type ApprovalStatus = "NHAP" | "CHO_DUYET" | "DA_CHOT" | "TRA_LAI";
+/** DA_DUYET / YEU_CAU_BO_SUNG / KHOA: phiếu cũ — đọc như DA_CHOT / TRA_LAI. */
+export type LogStatus = ApprovalStatus | "DA_DUYET" | "YEU_CAU_BO_SUNG" | "KHOA";
 export type AlertStatus = "MOI" | "DA_XEM" | "DANG_XU_LY" | "DA_XU_LY" | "BO_QUA_CO_LY_DO";
 export type ThresholdGroup = "LUU_LUONG" | "CHAT_LUONG" | "PHAP_LY";
 export type ChemKind = "NHAP" | "XUAT";
@@ -81,6 +83,9 @@ export type OpLog = {
   Nguoi_xacnhan_BV: string;
   Chucvu_xacnhan_BV: string;
   Da_xacnhan_BV: boolean;
+  approvedBy?: string;
+  approvedAt?: string;
+  reviewNote?: string;
 };
 
 export type LogHistory = {
@@ -139,6 +144,10 @@ export type ChemImportConfirm = {
   actor: string;
   at: string;
   note: string;
+  status?: ApprovalStatus;
+  approvedBy?: string;
+  approvedAt?: string;
+  reviewNote?: string;
 };
 
 export type ChemRestockStatus = "MOI" | "DANG_DAT" | "DA_GIAO" | "HUY";
@@ -149,6 +158,10 @@ export type ChemDoseLog = {
   actor: string;
   at: string;
   note: string;
+  status?: ApprovalStatus;
+  approvedBy?: string;
+  approvedAt?: string;
+  reviewNote?: string;
 };
 
 export type ChemRestockRequest = {
@@ -158,6 +171,10 @@ export type ChemRestockRequest = {
   reason: string;
   qty: ChemQty;
   status: ChemRestockStatus;
+  approvalStatus?: ApprovalStatus;
+  approvedBy?: string;
+  approvedAt?: string;
+  reviewNote?: string;
 };
 
 export type Equipment = {
@@ -194,6 +211,10 @@ export type Incident = {
   Loai?: "THIET_BI" | "BAT_THUONG";
   Doi_tuong?: string;
   He_lien_quan?: "He_600" | "He_220" | "CHUNG";
+  status?: ApprovalStatus;
+  approvedBy?: string;
+  approvedAt?: string;
+  reviewNote?: string;
 };
 
 export type Maintenance = {

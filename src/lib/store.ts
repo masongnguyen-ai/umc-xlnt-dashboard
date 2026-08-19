@@ -5,6 +5,7 @@ import type {
   AlertHistory,
   AlertStatus,
   AppUserRecord,
+  ApprovalStatus,
   ChemImportConfirm,
   ChemQty,
   ChemReceipt,
@@ -13,6 +14,7 @@ import type {
   ChemDoseLog,
   ChemTx,
   Equipment,
+  FlowDay,
   Incident,
   LogHistory,
   Maintenance,
@@ -38,9 +40,30 @@ import {
 import { FLOW_SHEET_META } from "./flow-data";
 import { annotateFlow, generateFlowDays, scanFlowAlerts, softValidateLog } from "./flow";
 import { listOpenFollowups, normalizeLog, syncLegacyIncident, validateShiftLog } from "./shift-log";
-import type { FlowDay } from "./types";
 import type { SheetSyncInfo } from "./ops/types";
 import { uid } from "./utils";
+import { canStaffEdit, isChot, overlayPending } from "./approval";
+
+function actorRole(users: { Email: string; Vai_tro: Role }[], actor: string): Role | undefined {
+  return users.find((u) => u.Email.toLowerCase() === actor.toLowerCase())?.Vai_tro;
+}
+
+function requireManager(users: { Email: string; Vai_tro: Role }[], actor: string) {
+  if (actorRole(users, actor) !== "QUAN_LY") {
+    return { ok: false as const, error: "Chỉ quản lý được chốt / trả lại / mở lại phiếu." };
+  }
+  return null;
+}
+
+function reviewPatch(action: "CHOT" | "TRA_LAI", note: string, actor: string) {
+  const now = new Date().toISOString();
+  return {
+    status: (action === "CHOT" ? "DA_CHOT" : "TRA_LAI") as ApprovalStatus,
+    approvedBy: actor,
+    approvedAt: now,
+    reviewNote: note,
+  };
+}
 
 function buildOfficialState() {
   const flowDays = annotateFlow(generateFlowDays(), SEED_THRESHOLDS);
@@ -108,6 +131,13 @@ type State = {
   saveThreshold: (id: string, patch: Partial<Threshold>) => void;
   saveLog: (log: OpLog, actor: string, asDraft: boolean) => { ok: true; warnings: ReturnType<typeof softValidateLog> } | { ok: false; error: string };
   approveLog: (id: string, action: "DUYET" | "BO_SUNG" | "KHOA", note: string, actor: string) => { ok: boolean; error?: string };
+  reopenLog: (id: string, actor: string) => { ok: boolean; error?: string };
+  reviewChemDose: (iso: string, action: "CHOT" | "TRA_LAI", note: string, actor: string) => { ok: boolean; error?: string };
+  reviewChemImport: (thang: string, action: "CHOT" | "TRA_LAI", note: string, actor: string) => { ok: boolean; error?: string };
+  reviewChemRestock: (id: string, action: "CHOT" | "TRA_LAI", note: string, actor: string) => { ok: boolean; error?: string };
+  reviewIncident: (id: string, action: "CHOT" | "TRA_LAI", note: string, actor: string) => { ok: boolean; error?: string };
+  reopenChemDose: (iso: string, actor: string) => { ok: boolean; error?: string };
+  reopenChemImport: (thang: string, actor: string) => { ok: boolean; error?: string };
   addChemTx: (tx: Omit<ChemTx, "Tx_ID" | "Ngay_tao">) => { ok: true } | { ok: false; error: string };
   confirmChemImport: (input: {
     thang: string;
@@ -155,6 +185,13 @@ function initial(): Omit<
   | "saveThreshold"
   | "saveLog"
   | "approveLog"
+  | "reopenLog"
+  | "reviewChemDose"
+  | "reviewChemImport"
+  | "reviewChemRestock"
+  | "reviewIncident"
+  | "reopenChemDose"
+  | "reopenChemImport"
   | "addChemTx"
   | "confirmChemImport"
   | "saveChemDose"
@@ -255,17 +292,30 @@ export const useAppStore = create<State>()(
 
         const now = new Date().toISOString();
         const existing = get().logs.find((l) => l.Log_ID === log.Log_ID);
+        const manager = actorRole(get().users, actor) === "QUAN_LY";
+        if (existing && isChot(existing.Trang_thai) && !manager) {
+          return { ok: false as const, error: "Phiếu đã chốt. Chỉ quản lý được mở lại." };
+        }
+        if (existing && existing.Trang_thai === "CHO_DUYET" && !manager) {
+          return { ok: false as const, error: "Đang chờ quản lý duyệt — không sửa được." };
+        }
+        if (existing && isChot(existing.Trang_thai) && manager) {
+          return { ok: false as const, error: "Mở lại phiếu trước khi sửa." };
+        }
         const err = validateShiftLog(log, asDraft);
         if (err) return { ok: false as const, error: err };
         const status = asDraft ? "NHAP" : "CHO_DUYET";
         const saved: OpLog = {
           ...syncLegacyIncident(normalizeLog(log)),
           Log_ID: log.Log_ID || uid("LOG"),
-          Trang_thai: existing && existing.Trang_thai !== "NHAP" && existing.Trang_thai !== "YEU_CAU_BO_SUNG" ? existing.Trang_thai : status,
+          Trang_thai: status,
           Nguoi_tao: existing?.Nguoi_tao || actor,
           Nguoi_sua: actor,
           Ngay_tao: existing?.Ngay_tao || now,
           Ngay_sua: now,
+          approvedBy: undefined,
+          approvedAt: undefined,
+          reviewNote: undefined,
         };
 
         const logs = existing
@@ -286,14 +336,27 @@ export const useAppStore = create<State>()(
       },
 
       approveLog: (id, action, note, actor) => {
+        const blocked = requireManager(get().users, actor);
+        if (blocked) return blocked;
         const log = get().logs.find((l) => l.Log_ID === id);
         if (!log) return { ok: false, error: "Không tìm thấy nhật ký." };
-        const map = { DUYET: "DA_DUYET", BO_SUNG: "YEU_CAU_BO_SUNG", KHOA: "KHOA" } as const;
+        if (log.Trang_thai !== "CHO_DUYET") return { ok: false, error: "Chỉ chốt phiếu đang chờ duyệt." };
+        const map = { DUYET: "DA_CHOT", BO_SUNG: "TRA_LAI", KHOA: "KHOA" } as const;
         const next = map[action];
         const now = new Date().toISOString();
         set({
           logs: get().logs.map((l) =>
-            l.Log_ID === id ? { ...l, Trang_thai: next, Nguoi_sua: actor, Ngay_sua: now } : l,
+            l.Log_ID === id
+              ? {
+                  ...l,
+                  Trang_thai: next,
+                  Nguoi_sua: actor,
+                  Ngay_sua: now,
+                  approvedBy: actor,
+                  approvedAt: now,
+                  reviewNote: note,
+                }
+              : l,
           ),
           logHistories: [
             {
@@ -301,8 +364,44 @@ export const useAppStore = create<State>()(
               Log_ID: id,
               Thoi_gian: now,
               Nguoi_thuc_hien: actor,
-              Hanh_dong: action,
+              Hanh_dong: action === "DUYET" ? "CHOT" : action === "BO_SUNG" ? "TRA_LAI" : action,
               Ghi_chu: note,
+            },
+            ...get().logHistories,
+          ],
+        });
+        return { ok: true };
+      },
+
+      reopenLog: (id, actor) => {
+        const blocked = requireManager(get().users, actor);
+        if (blocked) return blocked;
+        const log = get().logs.find((l) => l.Log_ID === id);
+        if (!log) return { ok: false, error: "Không tìm thấy nhật ký." };
+        if (!isChot(log.Trang_thai)) return { ok: false, error: "Chỉ mở lại phiếu đã chốt." };
+        const now = new Date().toISOString();
+        set({
+          logs: get().logs.map((l) =>
+            l.Log_ID === id
+              ? {
+                  ...l,
+                  Trang_thai: "NHAP",
+                  Nguoi_sua: actor,
+                  Ngay_sua: now,
+                  approvedBy: undefined,
+                  approvedAt: undefined,
+                  reviewNote: undefined,
+                }
+              : l,
+          ),
+          logHistories: [
+            {
+              History_ID: uid("HST"),
+              Log_ID: id,
+              Thoi_gian: now,
+              Nguoi_thuc_hien: actor,
+              Hanh_dong: "MO_LAI",
+              Ghi_chu: "",
             },
             ...get().logHistories,
           ],
@@ -325,7 +424,8 @@ export const useAppStore = create<State>()(
         return { ok: true as const };
       },
 
-      confirmChemImport: ({ thang, receipts, actor, note, lock }) => {
+      confirmChemImport: (input) => {
+        const { thang, receipts, actor, note, lock } = input;
         if (!thang) return { ok: false as const, error: "Thiếu kỳ nhập." };
         if (!receipts.length) return { ok: false as const, error: "Cần ít nhất một ngày nhập." };
         if (receipts.length > 3) return { ok: false as const, error: "Tối đa 3 ngày nhập trong một kỳ." };
@@ -334,6 +434,14 @@ export const useAppStore = create<State>()(
           if (Object.values(r.qty).some((n) => n < 0 || Number.isNaN(n))) {
             return { ok: false as const, error: "Số lượng không được âm." };
           }
+        }
+        const existing = (get().chemConfirms ?? []).find((c) => c.thang === thang);
+        const manager = actorRole(get().users, actor) === "QUAN_LY";
+        if (existing && isChot(existing.status ?? (existing.locked ? "DA_CHOT" : "NHAP")) && !manager) {
+          return { ok: false as const, error: "Kỳ đã chốt. Chỉ quản lý được mở lại." };
+        }
+        if (existing?.status === "CHO_DUYET" && !manager) {
+          return { ok: false as const, error: "Đang chờ quản lý duyệt — không sửa được." };
         }
         const qty = receipts.reduce(
           (acc, r) => ({
@@ -345,14 +453,21 @@ export const useAppStore = create<State>()(
           }),
           { micro: 0, matri: 0, naoh: 0, nahco3: 0, javen: 0 },
         );
+        const now = new Date().toISOString();
+        let status: ApprovalStatus = "NHAP";
+        if (lock && manager) status = "DA_CHOT";
+        else if (lock) status = "CHO_DUYET";
         const rec: ChemImportConfirm = {
           thang,
           receipts,
           qty,
-          locked: lock,
+          locked: status === "DA_CHOT",
           actor,
-          at: new Date().toISOString(),
+          at: now,
           note,
+          status,
+          approvedBy: status === "DA_CHOT" ? actor : undefined,
+          approvedAt: status === "DA_CHOT" ? now : undefined,
         };
         const rest = (get().chemConfirms ?? []).filter((c) => c.thang !== thang);
         set({ chemConfirms: [...rest, rec] });
@@ -364,7 +479,27 @@ export const useAppStore = create<State>()(
         if (Object.values(log.qty).some((n) => n < 0 || Number.isNaN(n))) {
           return { ok: false as const, error: "Liều không được âm." };
         }
-        const rec: ChemDoseLog = { ...log, at: new Date().toISOString() };
+        const existing = (get().chemDoses ?? []).find((d) => d.iso === log.iso);
+        if (existing?.status === "CHO_DUYET") {
+          return { ok: false as const, error: "Đang chờ quản lý duyệt — không sửa được." };
+        }
+        if (existing && !canStaffEdit(existing.status)) {
+          return {
+            ok: false as const,
+            error:
+              actorRole(get().users, log.actor) === "QUAN_LY"
+                ? "Mở lại phiếu trước khi sửa."
+                : "Liều đã chốt. Chỉ quản lý được mở lại.",
+          };
+        }
+        const rec: ChemDoseLog = {
+          ...log,
+          at: new Date().toISOString(),
+          status: "CHO_DUYET",
+          approvedBy: undefined,
+          approvedAt: undefined,
+          reviewNote: undefined,
+        };
         const rest = (get().chemDoses ?? []).filter((d) => d.iso !== log.iso);
         set({ chemDoses: [...rest, rec].sort((a, b) => b.iso.localeCompare(a.iso)) });
         return { ok: true as const };
@@ -381,15 +516,117 @@ export const useAppStore = create<State>()(
           reason,
           qty,
           status: "MOI",
+          approvalStatus: "CHO_DUYET",
         };
         set({ chemRestocks: [rec, ...(get().chemRestocks ?? [])] });
         return { ok: true as const };
       },
 
-      updateChemRestock: (id, status) =>
+      updateChemRestock: (id, status) => {
+        const rec = (get().chemRestocks ?? []).find((r) => r.id === id);
+        if (rec && rec.approvalStatus === "CHO_DUYET") return;
         set({
           chemRestocks: (get().chemRestocks ?? []).map((r) => (r.id === id ? { ...r, status } : r)),
-        }),
+        });
+      },
+
+      reviewChemDose: (iso, action, note, actor) => {
+        const blocked = requireManager(get().users, actor);
+        if (blocked) return blocked;
+        const rec = (get().chemDoses ?? []).find((d) => d.iso === iso);
+        if (!rec) return { ok: false, error: "Không tìm thấy phiếu liều." };
+        if (rec.status !== "CHO_DUYET") return { ok: false, error: "Chỉ chốt phiếu đang chờ duyệt." };
+        const patch = reviewPatch(action, note, actor);
+        set({
+          chemDoses: (get().chemDoses ?? []).map((d) => (d.iso === iso ? { ...d, ...patch } : d)),
+        });
+        return { ok: true };
+      },
+
+      reviewChemImport: (thang, action, note, actor) => {
+        const blocked = requireManager(get().users, actor);
+        if (blocked) return blocked;
+        const rec = (get().chemConfirms ?? []).find((c) => c.thang === thang);
+        if (!rec) return { ok: false, error: "Không tìm thấy phiếu nhập." };
+        if (rec.status !== "CHO_DUYET") return { ok: false, error: "Chỉ chốt phiếu đang chờ duyệt." };
+        const patch = reviewPatch(action, note, actor);
+        set({
+          chemConfirms: (get().chemConfirms ?? []).map((c) =>
+            c.thang === thang ? { ...c, ...patch, locked: action === "CHOT" } : c,
+          ),
+        });
+        return { ok: true };
+      },
+
+      reviewChemRestock: (id, action, note, actor) => {
+        const blocked = requireManager(get().users, actor);
+        if (blocked) return blocked;
+        const rec = (get().chemRestocks ?? []).find((r) => r.id === id);
+        if (!rec) return { ok: false, error: "Không tìm thấy phiếu điều động." };
+        if (rec.approvalStatus !== "CHO_DUYET") return { ok: false, error: "Chỉ chốt phiếu đang chờ duyệt." };
+        const patch = reviewPatch(action, note, actor);
+        set({
+          chemRestocks: (get().chemRestocks ?? []).map((r) =>
+            r.id === id
+              ? {
+                  ...r,
+                  approvalStatus: patch.status,
+                  approvedBy: patch.approvedBy,
+                  approvedAt: patch.approvedAt,
+                  reviewNote: patch.reviewNote,
+                  status: action === "TRA_LAI" ? "HUY" : r.status,
+                }
+              : r,
+          ),
+        });
+        return { ok: true };
+      },
+
+      reviewIncident: (id, action, note, actor) => {
+        const blocked = requireManager(get().users, actor);
+        if (blocked) return blocked;
+        const rec = get().incidents.find((i) => i.Incident_ID === id);
+        if (!rec) return { ok: false, error: "Không tìm thấy sự cố." };
+        if (rec.status !== "CHO_DUYET") return { ok: false, error: "Chỉ chốt phiếu đang chờ duyệt." };
+        const patch = reviewPatch(action, note, actor);
+        set({
+          incidents: get().incidents.map((i) => (i.Incident_ID === id ? { ...i, ...patch } : i)),
+        });
+        return { ok: true };
+      },
+
+      reopenChemDose: (iso, actor) => {
+        const blocked = requireManager(get().users, actor);
+        if (blocked) return blocked;
+        set({
+          chemDoses: (get().chemDoses ?? []).map((d) =>
+            d.iso === iso
+              ? { ...d, status: "NHAP" as const, approvedBy: undefined, approvedAt: undefined, reviewNote: undefined }
+              : d,
+          ),
+        });
+        return { ok: true };
+      },
+
+      reopenChemImport: (thang, actor) => {
+        const blocked = requireManager(get().users, actor);
+        if (blocked) return blocked;
+        set({
+          chemConfirms: (get().chemConfirms ?? []).map((c) =>
+            c.thang === thang
+              ? {
+                  ...c,
+                  status: "NHAP" as const,
+                  locked: false,
+                  approvedBy: undefined,
+                  approvedAt: undefined,
+                  reviewNote: undefined,
+                }
+              : c,
+          ),
+        });
+        return { ok: true };
+      },
 
       setChemThreshold: (ma, value) =>
         set({
@@ -459,7 +696,7 @@ export const useAppStore = create<State>()(
       },
 
       compileReport: (from, to, actor) => {
-        const logs = get().logs.filter((l) => l.Ngay >= from && l.Ngay <= to);
+        const logs = get().logs.filter((l) => l.Ngay >= from && l.Ngay <= to && isChot(l.Trang_thai));
         const nums = (pick: (l: OpLog) => number | null) =>
           logs.map(pick).filter((n): n is number => n != null && !Number.isNaN(n));
         const avg = (arr: number[]) => (arr.length ? arr.reduce((a, b) => a + b, 0) / arr.length : null);
@@ -472,13 +709,15 @@ export const useAppStore = create<State>()(
           Trang_thai: "CHO_DUYET",
           Noi_dung: {
             so_nhat_ky: logs.length,
-            so_da_duyet: logs.filter((l) => l.Trang_thai === "DA_DUYET").length,
+            so_da_duyet: logs.length,
             tb_luu_luong: avg(nums((l) => l.Luu_luong_nt)),
             tb_ph_out: avg(nums((l) => l.pH_dau_ra)),
             tb_sv30: avg(nums((l) => l.SV30)),
             tb_amoni: avg(nums((l) => l.Amoni)),
             tb_cod: avg(nums((l) => l.COD)),
-            so_su_co: get().incidents.filter((i) => i.Ngay_phat_sinh >= from && i.Ngay_phat_sinh <= to).length,
+            so_su_co: get().incidents.filter(
+              (i) => i.Ngay_phat_sinh >= from && i.Ngay_phat_sinh <= to && isChot(i.status),
+            ).length,
             so_giao_dich_hc: get().transactions.filter((t) => t.Ngay_thuc_hien >= from && t.Ngay_thuc_hien <= to).length,
             so_canh_bao: get().alerts.filter((a) => a.Ngay >= from && a.Ngay <= to).length,
             so_bat_thuong: logs.filter((l) => normalizeLog(l).Co_bat_thuong).length,
@@ -513,9 +752,36 @@ export const useAppStore = create<State>()(
       syncFromCsdl: () => set({ ...buildOfficialState(), opsReady: true }),
       hydrateOps: (patch) =>
         set({
-          ...(patch.chemConfirms !== undefined ? { chemConfirms: patch.chemConfirms } : {}),
-          ...(patch.chemDoses !== undefined ? { chemDoses: patch.chemDoses } : {}),
-          ...(patch.chemRestocks !== undefined ? { chemRestocks: patch.chemRestocks } : {}),
+          ...(patch.chemConfirms !== undefined
+            ? {
+                chemConfirms: overlayPending(
+                  get().chemConfirms,
+                  patch.chemConfirms,
+                  (c) => c.thang,
+                  (c) => c.status === "CHO_DUYET" || c.status === "NHAP" || c.status === "TRA_LAI",
+                ),
+              }
+            : {}),
+          ...(patch.chemDoses !== undefined
+            ? {
+                chemDoses: overlayPending(
+                  get().chemDoses,
+                  patch.chemDoses,
+                  (d) => d.iso,
+                  (d) => d.status === "CHO_DUYET" || d.status === "NHAP" || d.status === "TRA_LAI",
+                ),
+              }
+            : {}),
+          ...(patch.chemRestocks !== undefined
+            ? {
+                chemRestocks: overlayPending(
+                  get().chemRestocks,
+                  patch.chemRestocks,
+                  (r) => r.id,
+                  (r) => r.approvalStatus === "CHO_DUYET" || r.approvalStatus === "NHAP" || r.approvalStatus === "TRA_LAI",
+                ),
+              }
+            : {}),
           ...(patch.transactions !== undefined ? { transactions: patch.transactions } : {}),
           ...(patch.stocks !== undefined ? { stocks: patch.stocks } : {}),
           ...(patch.users !== undefined ? { users: patch.users } : {}),

@@ -38,8 +38,10 @@ export const ROLE_LABEL: Record<Role, string> = {
 export const LOG_STATUS_LABEL: Record<LogStatus, string> = {
   NHAP: "Nháp",
   CHO_DUYET: "Chờ duyệt",
-  DA_DUYET: "Đã duyệt",
-  YEU_CAU_BO_SUNG: "Cần bổ sung",
+  DA_CHOT: "Đã chốt",
+  TRA_LAI: "Trả lại",
+  DA_DUYET: "Đã chốt",
+  YEU_CAU_BO_SUNG: "Trả lại",
   KHOA: "Đã khóa",
 };
 

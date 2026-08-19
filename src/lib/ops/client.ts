@@ -96,9 +96,13 @@ export async function persistChemImport(input: {
 }) {
   const local = useAppStore.getState().confirmChemImport(input);
   if (!local.ok) return local;
+  const rec = useAppStore.getState().chemConfirms.find((c) => c.thang === input.thang);
+  if (rec?.status !== "DA_CHOT") {
+    return { ok: true as const };
+  }
   try {
     const r = await saveChemImportFn({
-      data: { thang: input.thang, receipts: input.receipts, note: input.note, lock: input.lock },
+      data: { thang: input.thang, receipts: input.receipts, note: input.note, lock: true },
     });
     if (!r.ok) return r;
     useAppStore.setState({ sheetSync: r.sheet });
@@ -112,14 +116,36 @@ export async function persistChemImport(input: {
 export async function persistChemDose(log: { iso: string; qty: ChemQty; actor: string; note: string }) {
   const local = useAppStore.getState().saveChemDose(log);
   if (!local.ok) return local;
+  return { ok: true as const };
+}
+
+export async function persistChemDoseChot(iso: string) {
+  const rec = useAppStore.getState().chemDoses.find((d) => d.iso === iso);
+  if (!rec || rec.status !== "DA_CHOT") return { ok: false as const, error: "Chưa chốt liều." };
   try {
-    const r = await saveChemDoseFn({ data: { iso: log.iso, qty: log.qty, note: log.note } });
+    const r = await saveChemDoseFn({ data: { iso: rec.iso, qty: rec.qty, note: rec.note } });
     if (!r.ok) return r;
     useAppStore.setState({ sheetSync: r.sheet });
     sheetToast(r.sheet);
     return { ok: true as const };
   } catch (err) {
     return { ok: false as const, error: errMsg(err, "Máy chủ từ chối ghi liều.") };
+  }
+}
+
+export async function persistChemImportChot(thang: string) {
+  const rec = useAppStore.getState().chemConfirms.find((c) => c.thang === thang);
+  if (!rec || rec.status !== "DA_CHOT") return { ok: false as const, error: "Chưa chốt nhập." };
+  try {
+    const r = await saveChemImportFn({
+      data: { thang: rec.thang, receipts: rec.receipts, note: rec.note, lock: true },
+    });
+    if (!r.ok) return r;
+    useAppStore.setState({ sheetSync: r.sheet });
+    sheetToast(r.sheet);
+    return { ok: true as const };
+  } catch (err) {
+    return { ok: false as const, error: errMsg(err, "Máy chủ từ chối chốt nhập.") };
   }
 }
 

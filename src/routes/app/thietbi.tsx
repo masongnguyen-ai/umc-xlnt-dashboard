@@ -17,6 +17,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { MAINT_SCHEDULE } from "@/lib/csdl";
 import { todayISO } from "@/lib/format";
 import { persistIncident } from "@/lib/ops/client";
+import { ApprovalInbox } from "@/components/approval-inbox";
+import { APPROVAL_LABEL, pendingIncidents } from "@/lib/approval";
 import { prepareEvidenceImage, fmtBytes } from "@/lib/image-compress";
 import { parseDriveFileId } from "@/lib/drive-tree";
 
@@ -54,6 +56,7 @@ function ThietBi() {
   const updateEquipment = useAppStore((s) => s.updateEquipment);
   const addEquipment = useAppStore((s) => s.addEquipment);
   const addMaintenance = useAppStore((s) => s.addMaintenance);
+  const reviewIncident = useAppStore((s) => s.reviewIncident);
   const writable = can(role, "write_thietbi");
   const canCatalog = role === "QUAN_LY";
 
@@ -244,6 +247,17 @@ function ThietBi() {
           </div>
         </TabsContent>
         <TabsContent value="sc" className="space-y-3">
+          <ApprovalInbox
+            title="Chờ duyệt — sự cố"
+            items={pendingIncidents(incidents).map((i) => ({
+              id: i.Incident_ID,
+              kind: "Sự cố",
+              title: i.Mo_ta_su_co.slice(0, 80) || i.Incident_ID,
+              detail: fmtDate(i.Ngay_phat_sinh),
+            }))}
+            canReview={can(role, "approve_thietbi")}
+            onReview={(id, action, note) => reviewIncident(id, action, note, email)}
+          />
           {writable ? (
             <div className="flex flex-wrap justify-end gap-2">
               <Button
@@ -276,6 +290,11 @@ function ThietBi() {
                       <Badge variant="warn">Bất thường</Badge>
                     ) : null}
                     <Badge variant={i.Trang_thai === "DA_XU_LY" ? "ok" : "warn"}>{i.Trang_thai}</Badge>
+                    {i.status === "CHO_DUYET" || i.status === "TRA_LAI" || i.status === "DA_CHOT" ? (
+                      <Badge variant={i.status === "DA_CHOT" ? "ok" : i.status === "CHO_DUYET" ? "warn" : "accent"}>
+                        {APPROVAL_LABEL[i.status]}
+                      </Badge>
+                    ) : null}
                     <span className="text-xs text-muted">{fmtDate(i.Ngay_phat_sinh)}</span>
                   </div>
                   <h3 className="mt-1 text-sm font-semibold">
@@ -534,6 +553,7 @@ function ThietBi() {
                   Trang_thai: "MOI",
                   Nguoi_khac_phuc: "",
                   Ngay_hoan_thanh: "",
+                  status: role === "QUAN_LY" ? "DA_CHOT" : "CHO_DUYET",
                 },
                 photos.map((p) => ({ name: p.name, dataUrl: p.dataUrl, driveUrl: p.driveUrl })),
               ).then(() => {
@@ -547,7 +567,7 @@ function ThietBi() {
               }).finally(() => setSavingInc(false));
             }}
           >
-            {savingInc ? "Đang lưu lên Drive…" : "Lưu"}
+            {savingInc ? "Đang lưu lên Drive…" : role === "QUAN_LY" ? "Lưu" : "Gửi quản lý"}
           </Button>
         </DialogContent>
       </Dialog>

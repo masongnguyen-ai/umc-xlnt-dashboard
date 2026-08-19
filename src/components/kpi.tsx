@@ -81,13 +81,13 @@ export function Kpi({
       <div
         className={cn(
           "mt-2 min-w-0",
-          clock && "flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-4",
+          clock && "flex flex-col gap-3 lg:flex-row lg:items-center lg:gap-4",
         )}
       >
         <div className="min-w-0 flex-1">
           <div
             className={cn(
-              "kpi-value",
+              "kpi-value inline-flex items-baseline gap-[0.2em]",
               size === "hero" && "kpi-value--hero text-[2.05rem] leading-none sm:text-[2.45rem]",
               valueTone,
             )}
@@ -99,12 +99,7 @@ export function Kpi({
           {hint ? <div className="kpi-hint mt-1">{hint}</div> : null}
         </div>
         {clock ? (
-          <DayNightClock
-            day={clock.day}
-            night={clock.night}
-            dayNote={clock.dayNote}
-            nightNote={clock.nightNote}
-          />
+          <DayNightClock day={clock.day} night={clock.night} />
         ) : parts?.length ? (
           <div className="mt-2 grid grid-cols-2 gap-2">
             {parts.map((p) => (

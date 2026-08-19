@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import {
   Area,
   AreaChart,
@@ -66,8 +66,11 @@ function maxOf(arr: FlowDay[], f: keyof FlowDay) {
   return v.length ? Math.max(...v) : null;
 }
 function minOf(arr: FlowDay[], f: keyof FlowDay) {
-  const v = arr.map((x) => x[f]).filter((n): n is number => typeof n === "number");
+  const v = arr.map((x) => x[f]).filter((n): n is number => typeof n === "number" && n >= 0);
   return v.length ? Math.min(...v) : null;
+}
+function fmtMin(n: number | null, digits = 0) {
+  return n == null ? undefined : fmtNum(n, digits);
 }
 
 function shortNgay(ngay: string) {
@@ -87,15 +90,9 @@ function prevDays(days: FlowDay[], field: keyof FlowDay, digits = 0) {
     .join("\n");
 }
 
-function prevDaysCompact(days: FlowDay[], field: keyof FlowDay, digits = 0) {
-  const prev = days.slice(-3, -1).reverse();
-  if (!prev.length) return undefined;
-  return prev
-    .map((d) => {
-      const n = d[field];
-      return `${shortNgay(d.ngay)}: ${fmtNum(typeof n === "number" ? n : null, digits)}`;
-    })
-    .join(" - ");
+function minSigned(arr: FlowDay[], f: keyof FlowDay) {
+  const v = arr.map((x) => x[f]).filter((n): n is number => typeof n === "number");
+  return v.length ? Math.min(...v) : null;
 }
 
 const axis = { stroke: "#5c6773", fontSize: 11 };
@@ -188,7 +185,11 @@ function TheoDoi() {
   const ntLimit = last && (last.thu === "T7" || last.thu === "CN") ? ntWe : ntMax;
   const tone = (v: number | null | undefined, max: number) => {
     const c = kpiClass(v, max);
-    return c === "ok" || c === "warn" || c === "bad" ? c : "neutral";
+    return c === "warn" || c === "bad" ? c : "neutral";
+  };
+  const ntTone = (v: number | null | undefined, max: number) => {
+    const c = kpiClass(v, max);
+    return c === "warn" || c === "bad" ? c : "ok";
   };
   const alertDays = recs.filter((d) => d.cb && d.cb !== "OK").length;
   const leakTone =
@@ -235,11 +236,11 @@ function TheoDoi() {
             lastTone === "neutral" && "bg-accent",
           )}
         />
-        <div className="grid grid-cols-3 divide-x divide-border/70 pl-1">
-          <div className="flex items-start gap-2 px-3 py-3">
+        <div className="grid grid-cols-3 items-end divide-x divide-border/70 pl-1">
+          <div className="flex items-end gap-2 px-3 py-3">
             <span
               className={cn(
-                "mt-1.5 size-2 shrink-0 rounded-full",
+                "mb-1.5 size-2 shrink-0 rounded-full",
                 lastTone === "ok" && "bg-ok",
                 lastTone === "warn" && "bg-warn",
                 lastTone === "bad" && "bg-bad",
@@ -247,9 +248,9 @@ function TheoDoi() {
               )}
             />
             <div className="min-w-0">
-              <div className="text-[10px] font-semibold uppercase tracking-[0.14em] text-muted">Ngày gần nhất</div>
-              <div className="text-[13px] font-semibold tabular-nums leading-tight tracking-tight">
-                {last?.ngay}
+              <div className="text-[10px] font-semibold uppercase tracking-[0.14em] text-muted">Ngày</div>
+              <div className="banner-value mt-1.5 justify-start text-[1.65rem] sm:text-[2rem]">
+                {last?.ngay?.slice(0, 5) ?? "–"}
               </div>
               <div className="text-[11px] text-muted">{last?.thu}</div>
             </div>
@@ -266,63 +267,79 @@ function TheoDoi() {
             >
               {fmtNum(last?.llnt)} <span className="kpi-unit">m³</span>
             </div>
-            <div className="kpi-prev mt-2 rounded-md bg-bg/80 px-2 py-1.5 text-left opacity-65">
-              Hệ 600: {fmtNum(last?.ll600)} m³ - Hệ 220: {fmtNum(last?.ll220)} m³
-            </div>
           </div>
           <div className="min-w-0 px-2 py-3 text-center sm:px-3">
             <div className="banner-title tracking-[0.16em]">Nước cấp</div>
             <div className="banner-value mt-1.5 text-[1.65rem] sm:text-[2rem]">
               {fmtNum(last?.llcap)} <span className="kpi-unit">m³</span>
             </div>
-            <div className="kpi-prev mt-2 rounded-md bg-bg/80 px-2 py-1.5 text-left opacity-65">
-              Khu A: {fmtNum(last?.llcapA)} m³ - Khu B: {fmtNum(last?.llcapB)} m³
+          </div>
+        </div>
+        <div className="grid grid-cols-2 gap-2 px-3 pb-2">
+          <div className="rounded-lg bg-mint px-2.5 py-2 text-[11px] leading-snug">
+            <div className="font-semibold text-muted">Hệ 600 / 220</div>
+            <div className="mt-0.5 flex flex-wrap items-baseline gap-x-2 whitespace-nowrap font-mono tabular-nums">
+              <span>600 {fmtNum(last?.ll600)} m³</span>
+              <span>220 {fmtNum(last?.ll220)} m³</span>
+            </div>
+          </div>
+          <div className="rounded-lg bg-mint px-2.5 py-2 text-[11px] leading-snug">
+            <div className="font-semibold text-muted">Khu A / B</div>
+            <div className="mt-0.5 flex flex-wrap items-baseline gap-x-2 whitespace-nowrap font-mono tabular-nums">
+              <span>A {fmtNum(last?.llcapA)} m³</span>
+              <span>B {fmtNum(last?.llcapB)} m³</span>
             </div>
           </div>
         </div>
-        <div
+        <Link
+          to="/app/canhbao"
           className={cn(
-            "border-t px-3 py-2 text-[12px] font-semibold leading-snug",
-            last?.cb && last.cb !== "OK"
-              ? "border-bad/20 text-bad"
-              : "border-ok/20 text-ok",
+            "flex min-h-11 items-center border-t px-3 py-2 text-[12px] font-semibold leading-snug",
+            last?.cb && last.cb !== "OK" ? "border-bad/20 text-bad" : "border-ok/20 text-ok",
           )}
         >
           {last?.cb === "OK" || !last?.cb ? "Không có cảnh báo lưu lượng." : `Cảnh báo: ${last.cb}`}
-        </div>
+        </Link>
       </div>
 
       <div className="overflow-hidden rounded-lg border border-border bg-surface">
-        <div className="flex flex-wrap items-center gap-2 p-1.5">
-          <div className="flex min-w-0 flex-1 flex-wrap gap-1">
-            {chips.map((c) => (
-              <Button key={c.id} size="sm" variant={range === c.id ? "default" : "secondary"} onClick={() => setRange(c.id)}>
-                {c.label}
-              </Button>
-            ))}
-          </div>
-          <div className="flex flex-wrap items-center gap-1.5">
-            <a href={FLOW_SHEET_HTML} target="_blank" rel="noreferrer" className="hidden text-xs text-muted underline-offset-2 hover:text-fg hover:underline sm:inline">
-              Mở sheet gốc
-            </a>
-            <KeepAwake />
+        <div className="flex gap-1 overflow-x-auto p-1.5 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+          {chips.map((c) => (
             <Button
+              key={c.id}
               size="sm"
-              variant="secondary"
-              aria-busy={busy}
-              onClick={() => void refreshSheet()}
-              disabled={busy}
+              className="h-11 min-h-11 shrink-0"
+              variant={range === c.id ? "default" : "secondary"}
+              onClick={() => setRange(c.id)}
             >
-              {busy ? (
-                <>
-                  <span className="size-3.5 animate-spin rounded-full border-2 border-current border-t-transparent" />
-                  Đang lấy…
-                </>
-              ) : (
-                "Làm mới"
-              )}
+              {c.label}
             </Button>
-          </div>
+          ))}
+        </div>
+        <div className="grid grid-cols-2 gap-1.5 border-t border-border p-1.5">
+          <KeepAwake className="h-11 min-h-11 w-full" />
+          <Button
+            size="sm"
+            className="h-11 min-h-11 w-full"
+            variant="secondary"
+            aria-busy={busy}
+            onClick={() => void refreshSheet()}
+            disabled={busy}
+          >
+            {busy ? (
+              <>
+                <span className="size-3.5 animate-spin rounded-full border-2 border-current border-t-transparent" />
+                Đang lấy…
+              </>
+            ) : (
+              "Làm mới"
+            )}
+          </Button>
+        </div>
+        <div className="hidden border-t border-border px-3 py-1.5 lg:block">
+          <a href={FLOW_SHEET_HTML} target="_blank" rel="noreferrer" className="text-xs text-muted underline-offset-2 hover:text-fg hover:underline">
+            Mở sheet gốc
+          </a>
         </div>
         <div className="border-t border-border px-3 py-1.5">
           <LiveSyncBar />
@@ -334,9 +351,9 @@ function TheoDoi() {
           <Droplets className="size-3.5 text-accent" strokeWidth={1.75} />
           Nước thải
         </h2>
-        <div className="grid grid-cols-2 gap-2 sm:gap-3">
+        <div className="grid grid-cols-1 gap-2 lg:grid-cols-2 lg:gap-3">
           <Kpi
-            className="row-span-2 h-full"
+            className="lg:row-span-2 lg:h-full"
             size="hero"
             label="Nước thải 24h"
             value={fmtNum(last?.llnt)}
@@ -345,13 +362,11 @@ function TheoDoi() {
             clock={{
               day: last?.ntday,
               night: last?.lldem,
-              dayNote: prevDaysCompact(flowDays, "ntday"),
-              nightNote: prevDaysCompact(flowDays, "lldem"),
             }}
             prev={prevDays(flowDays, "llnt")}
-            tone={tone(last?.llnt, ntLimit)}
+            tone={ntTone(last?.llnt, ntLimit)}
             max={fmtNum(maxOf(recs, "llnt"))}
-            min={fmtNum(minOf(recs, "llnt"))}
+            min={fmtMin(minOf(recs, "llnt"))}
             avg={fmtNum(avg(recs, "llnt"))}
           />
           <Kpi
@@ -362,7 +377,7 @@ function TheoDoi() {
             prev={prevDays(flowDays, "ll600")}
             tone={tone(last?.ll600, he600)}
             max={fmtNum(maxOf(recs, "ll600"))}
-            min={fmtNum(minOf(recs, "ll600"))}
+            min={fmtMin(minOf(recs, "ll600"))}
             avg={fmtNum(avg(recs, "ll600"))}
           />
           <Kpi
@@ -374,12 +389,12 @@ function TheoDoi() {
               last && he220 && he220.Gia_tri_2 != null
                 ? last.ll220 < he220.Gia_tri_1 || last.ll220 > he220.Gia_tri_2
                   ? "warn"
-                  : "ok"
+                  : "neutral"
                 : "neutral"
             }
             prev={prevDays(flowDays, "ll220")}
             max={fmtNum(maxOf(recs, "ll220"))}
-            min={fmtNum(minOf(recs, "ll220"))}
+            min={fmtMin(minOf(recs, "ll220"))}
             avg={fmtNum(avg(recs, "ll220"))}
           />
         </div>
@@ -390,9 +405,9 @@ function TheoDoi() {
           <Waves className="size-3.5 text-info" strokeWidth={1.75} />
           Nước cấp
         </h2>
-        <div className="grid grid-cols-2 gap-2 sm:gap-3">
+        <div className="grid grid-cols-1 gap-2 lg:grid-cols-2 lg:gap-3">
           <Kpi
-            className="row-span-2 h-full"
+            className="lg:row-span-2 lg:h-full"
             size="hero"
             label="Nước cấp A+B"
             value={fmtNum(last?.llcap)}
@@ -401,13 +416,11 @@ function TheoDoi() {
             clock={{
               day: last?.capday,
               night: last?.capdem,
-              dayNote: prevDaysCompact(flowDays, "capday"),
-              nightNote: prevDaysCompact(flowDays, "capdem"),
             }}
             prev={prevDays(flowDays, "llcap")}
             tone="neutral"
             max={fmtNum(maxOf(recs, "llcap"))}
-            min={fmtNum(minOf(recs, "llcap"))}
+            min={fmtMin(minOf(recs, "llcap"))}
             avg={fmtNum(avg(recs, "llcap"))}
           />
           <Kpi
@@ -418,7 +431,7 @@ function TheoDoi() {
             prev={prevDays(flowDays, "llcapA")}
             tone="neutral"
             max={fmtNum(maxOf(recs, "llcapA"))}
-            min={fmtNum(minOf(recs, "llcapA"))}
+            min={fmtMin(minOf(recs, "llcapA"))}
             avg={fmtNum(avg(recs, "llcapA"))}
           />
           <Kpi
@@ -429,7 +442,7 @@ function TheoDoi() {
             prev={prevDays(flowDays, "llcapB")}
             tone="neutral"
             max={fmtNum(maxOf(recs, "llcapB"))}
-            min={fmtNum(minOf(recs, "llcapB"))}
+            min={fmtMin(minOf(recs, "llcapB"))}
             avg={fmtNum(avg(recs, "llcapB"))}
           />
         </div>
@@ -452,7 +465,7 @@ function TheoDoi() {
             prev={prevDays(flowDays, "chenh")}
             tone={chenhTone}
             max={fmtNum(maxOf(recs, "chenh"))}
-            min={fmtNum(minOf(recs, "chenh"))}
+            min={fmtNum(minSigned(recs, "chenh"))}
             avg={fmtNum(avg(recs, "chenh"))}
           />
           <Kpi
@@ -463,7 +476,7 @@ function TheoDoi() {
             prev={prevDays(flowDays, "thatthoatB", 1)}
             tone={leakTone}
             max={fmtNum(maxOf(recs, "thatthoatB"))}
-            min={fmtNum(minOf(recs, "thatthoatB"))}
+            min={fmtNum(minSigned(recs, "thatthoatB"))}
             avg={fmtNum(avg(recs, "thatthoatB"))}
           />
         </div>

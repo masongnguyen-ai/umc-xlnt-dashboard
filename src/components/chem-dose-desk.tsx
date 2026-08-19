@@ -24,6 +24,7 @@ import { can } from "@/lib/permissions";
 import { persistChemDose, persistChemRestock, persistChemRestockStatus } from "@/lib/ops/client";
 import { useAppStore } from "@/lib/store";
 import { cn } from "@/lib/utils";
+import { APPROVAL_LABEL, asApproval, canStaffEdit, isChot } from "@/lib/approval";
 
 function digits(k: ChemQtyKey) {
   return k === "micro" ? 1 : 0;
@@ -45,6 +46,8 @@ export function ChemDoseDesk({
   const restocks = useAppStore((s) => s.chemRestocks) ?? [];
   const canDose = can(role, "write_chem_dose");
   const canOrder = can(role, "write_hoachat");
+  const isManager = role === "QUAN_LY";
+  const reopenChemDose = useAppStore((s) => s.reopenChemDose);
 
   const logged = findDose(doses, day.iso);
   const suggest = dayToQty(day);
@@ -62,8 +65,13 @@ export function ChemDoseDesk({
   const order = useMemo(() => suggestRestock(stock, today), [stock, today]);
   const nhap = nextImport(today);
   const low = cover < 5;
-  const pending = restocks.filter((r) => r.status === "MOI" || r.status === "DANG_DAT");
+  const pending = restocks.filter((r) => {
+    const approved = !r.approvalStatus || r.approvalStatus === "DA_CHOT";
+    return approved && (r.status === "MOI" || r.status === "DANG_DAT");
+  });
   const pastOrToday = day.iso <= today;
+  const doseLocked = Boolean(logged && !canStaffEdit(logged.status));
+  const canEditDose = canDose && pastOrToday && !doseLocked;
 
   const setKey = (k: ChemQtyKey, n: number) => setQty({ ...qty, [k]: n });
 
@@ -126,7 +134,7 @@ export function ChemDoseDesk({
                       qty: order,
                     }).then((r) => {
                       if (!r.ok) toast.error(r.error);
-                      else toast.success("Đã gửi yêu cầu điều động.");
+                      else toast.success("Đã gửi quản lý. Chưa trừ tồn.");
                     });
                   }}
                 >
@@ -187,7 +195,13 @@ export function ChemDoseDesk({
       <div className="rounded-lg border border-border bg-surface p-4 shadow-panel">
         <div className="flex flex-wrap items-center gap-2">
           <h3 className="text-xs font-semibold uppercase tracking-[0.14em] text-muted">Liều gợi ý — chỉnh theo thực tế</h3>
-          {logged ? <Badge variant="ok">Đã châm</Badge> : <Badge>Chưa ghi</Badge>}
+          {logged ? (
+            <Badge variant={logged.status === "CHO_DUYET" ? "warn" : isChot(logged.status) ? "ok" : "accent"}>
+              {APPROVAL_LABEL[asApproval(logged.status)]}
+            </Badge>
+          ) : (
+            <Badge>Chưa ghi</Badge>
+          )}
         </div>
         <p className="mt-1 text-xs text-muted">
           Số lớn là gợi ý. Sau khi pha xong, giữ nguyên hoặc sửa rồi ghi — tồn trừ đúng số thật.
@@ -210,7 +224,7 @@ export function ChemDoseDesk({
                     type="number"
                     min={0}
                     step={c.key === "micro" ? 0.1 : 1}
-                    disabled={!canDose || !pastOrToday}
+                    disabled={!canEditDose}
                     value={qty[c.key]}
                     onChange={(e) => setKey(c.key, Number(e.target.value))}
                   />
@@ -228,7 +242,7 @@ export function ChemDoseDesk({
             );
           })}
         </div>
-        {canDose && pastOrToday ? (
+        {canEditDose ? (
           <div className="mt-3 flex flex-col gap-2 sm:flex-row">
             <Button
               type="button"
@@ -247,18 +261,38 @@ export function ChemDoseDesk({
               onClick={() => {
                 void persistChemDose({ iso: day.iso, qty, actor: email, note }).then((r) => {
                   if (!r.ok) toast.error(r.error);
-                  else toast.success("Đã ghi liều trên máy chủ. Tồn kho đã trừ.");
+                  else toast.success("Đã gửi quản lý. Tồn kho chưa trừ đến khi chốt.");
                 });
               }}
             >
-              Ghi liều
+              Gửi quản lý
             </Button>
           </div>
         ) : (
           <p className="mt-3 text-xs text-dim">
-            {pastOrToday ? "Chỉ ca trực / nhà thầu / quản lý được ghi liều." : "Ngày tương lai — chỉ xem gợi ý."}
+            {!pastOrToday
+              ? "Ngày tương lai — chỉ xem gợi ý."
+              : doseLocked
+                ? logged?.status === "CHO_DUYET"
+                  ? "Đã gửi — chờ quản lý chốt."
+                  : "Đã chốt — không sửa trừ khi quản lý mở lại."
+                : "Chỉ ca trực / nhà thầu / quản lý được ghi liều."}
           </p>
         )}
+        {isManager && logged && isChot(logged.status) ? (
+          <Button
+            type="button"
+            variant="secondary"
+            className="mt-2 min-h-11"
+            onClick={() => {
+              const r = reopenChemDose(day.iso, email);
+              if (!r.ok) toast.error(r.error);
+              else toast.success("Đã mở lại phiếu liều.");
+            }}
+          >
+            Mở lại
+          </Button>
+        ) : null}
         {logged ? (
           <p className="mt-2 text-xs text-muted">
             Lần ghi {fmtDateTime(logged.at)} · {logged.actor}
@@ -268,7 +302,7 @@ export function ChemDoseDesk({
         <Label className="mt-3 block text-xs">Ghi chú pha</Label>
         <Input
           className="mt-1"
-          disabled={!canDose || !pastOrToday}
+          disabled={!canEditDose}
           value={note}
           onChange={(e) => setNote(e.target.value)}
           placeholder="Lệch gợi ý vì pH / lưu lượng…"

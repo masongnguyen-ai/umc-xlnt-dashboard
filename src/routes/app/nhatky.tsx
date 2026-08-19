@@ -6,6 +6,8 @@ import { useAppStore } from "@/lib/store";
 import { useCurrentUser } from "@/lib/auth/use-current-user";
 import { can } from "@/lib/permissions";
 import { HANDOVER_STATUS_LABEL, LOG_STATUS_LABEL, ROLE_LABEL, SHIFT_LABEL, fmtDate, todayISO } from "@/lib/format";
+import { canStaffEdit, isChot, pendingLogs } from "@/lib/approval";
+import { ApprovalInbox } from "@/components/approval-inbox";
 import type { OpLog, Role, Shift } from "@/lib/types";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -57,6 +59,8 @@ function emptyLog(email: string): OpLog {
 const ST: Record<string, "ok" | "warn" | "bad" | "accent" | "default"> = {
   NHAP: "default",
   CHO_DUYET: "warn",
+  DA_CHOT: "ok",
+  TRA_LAI: "accent",
   DA_DUYET: "ok",
   YEU_CAU_BO_SUNG: "accent",
   KHOA: "bad",
@@ -89,9 +93,10 @@ function NhatKy() {
   const checklist = useAppStore((s) => s.checklist);
   const saveLog = useAppStore((s) => s.saveLog);
   const approveLog = useAppStore((s) => s.approveLog);
+  const reopenLog = useAppStore((s) => s.reopenLog);
 
   const [q, setQ] = useState("");
-  const [filter, setFilter] = useState<"all" | "abn" | "open">("all");
+  const [filter, setFilter] = useState<"all" | "abn" | "open" | "pending">("all");
   const [open, setOpen] = useState(false);
   const [draft, setDraft] = useState<OpLog | null>(null);
   const [note, setNote] = useState("");
@@ -120,6 +125,7 @@ function NhatKy() {
       if (!hay) return false;
       if (filter === "abn") return n.Co_bat_thuong;
       if (filter === "open") return n.Co_bat_thuong && n.Bat_thuong.some((a) => a.ket_qua !== "DA_KHAC_PHUC" && a.hien_tuong.trim());
+      if (filter === "pending") return n.Trang_thai === "CHO_DUYET";
       return true;
     });
   }, [logs, q, filter]);
@@ -186,6 +192,21 @@ function NhatKy() {
 
   return (
     <div className="mx-auto max-w-6xl space-y-5">
+      <ApprovalInbox
+        title="Chờ duyệt — nhật ký ca"
+        items={pendingLogs(logs).map((l) => ({
+          id: l.Log_ID,
+          kind: "Nhật ký",
+          title: `${fmtDate(l.Ngay)} · ${SHIFT_LABEL[l.Ca]}`,
+          detail: `${l.Nguoi_tao}${l.reviewNote ? ` · ${l.reviewNote}` : ""}`,
+        }))}
+        canReview={can(role, "approve_nhatky")}
+        onReview={(id, action, reviewNote) => {
+          const r = approveLog(id, action === "CHOT" ? "DUYET" : "BO_SUNG", reviewNote, email);
+          return r;
+        }}
+      />
+
       {openItems.length ? (
         <section className="relative overflow-hidden rounded-lg border border-border bg-surface p-4 pl-5 shadow-panel">
           <span className="absolute inset-y-0 left-0 w-[3px] bg-warn" />
@@ -212,6 +233,7 @@ function NhatKy() {
           {(
             [
               ["all", "Tất cả"],
+              ["pending", "Chờ duyệt"],
               ["abn", "Có bất thường"],
               ["open", "Cần bàn giao"],
             ] as const
@@ -365,6 +387,24 @@ function NhatKy() {
           </header>
           <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4">
             <div className="mx-auto max-w-2xl space-y-4">
+              {isChot(draft.Trang_thai) ? (
+                <p className="rounded-md bg-mint px-3 py-2 text-xs font-medium">
+                  Đã chốt — không sửa được
+                  {can(role, "approve_nhatky") ? ". Quản lý bấm Mở lại nếu cần chỉnh." : "."}
+                </p>
+              ) : draft.Trang_thai === "CHO_DUYET" ? (
+                <p className="rounded-md bg-warn/15 px-3 py-2 text-xs font-medium text-warn">
+                  Đang chờ quản lý chốt. Ca trực không tự duyệt.
+                </p>
+              ) : draft.Trang_thai === "TRA_LAI" || draft.Trang_thai === "YEU_CAU_BO_SUNG" ? (
+                <p className="rounded-md bg-accent/10 px-3 py-2 text-xs">
+                  Quản lý trả lại{draft.reviewNote ? `: ${draft.reviewNote}` : "."} Sửa rồi gửi lại.
+                </p>
+              ) : null}
+              <fieldset
+                disabled={draft.Trang_thai === "CHO_DUYET" || isChot(draft.Trang_thai)}
+                className="space-y-4 disabled:opacity-70"
+              >
               <div className="grid gap-3 sm:grid-cols-3">
                 <div>
                   <Label>Ngày</Label>
@@ -513,44 +553,66 @@ function NhatKy() {
                   ) : null}
                 </div>
               </div>
-              {can(role, "approve_nhatky") && draft.Trang_thai === "CHO_DUYET" ? (
-                <Textarea placeholder="Ghi chú duyệt" value={note} onChange={(e) => setNote(e.target.value)} />
-              ) : null}
               <div className="h-4" />
+            </fieldset>
+              {can(role, "approve_nhatky") && draft.Trang_thai === "CHO_DUYET" ? (
+                <Textarea className="mt-3" placeholder="Ghi chú chốt / trả lại" value={note} onChange={(e) => setNote(e.target.value)} />
+              ) : null}
             </div>
           </div>
           <footer className="border-t border-border bg-surface px-4 py-3">
             <div className="mx-auto flex max-w-2xl flex-wrap gap-2">
-              {can(role, "write_nhatky") && (draft.Trang_thai === "NHAP" || draft.Trang_thai === "YEU_CAU_BO_SUNG") ? (
+              {can(role, "write_nhatky") && canStaffEdit(draft.Trang_thai) ? (
                 <>
                   <Button variant="secondary" onClick={() => submit(true)}>
                     Lưu nháp
                   </Button>
-                  <Button onClick={() => submit(false)}>Gửi duyệt</Button>
+                  <Button onClick={() => submit(false)}>Gửi quản lý</Button>
                 </>
               ) : null}
               {can(role, "approve_nhatky") && draft.Trang_thai === "CHO_DUYET" ? (
                 <>
                   <Button
                     onClick={() => {
-                      approveLog(draft.Log_ID, "DUYET", note, email);
-                      toast.success("Đã duyệt.");
-                      setOpen(false);
+                      const r = approveLog(draft.Log_ID, "DUYET", note, email);
+                      if (!r.ok) toast.error(r.error);
+                      else {
+                        toast.success("Đã chốt.");
+                        setOpen(false);
+                      }
                     }}
                   >
-                    Duyệt
+                    Chốt
                   </Button>
                   <Button
                     variant="secondary"
                     onClick={() => {
-                      approveLog(draft.Log_ID, "BO_SUNG", note, email);
-                      toast.message("Yêu cầu bổ sung.");
-                      setOpen(false);
+                      const r = approveLog(draft.Log_ID, "BO_SUNG", note, email);
+                      if (!r.ok) toast.error(r.error);
+                      else {
+                        toast.message("Đã trả lại.");
+                        setOpen(false);
+                      }
                     }}
                   >
-                    Bổ sung
+                    Trả lại
                   </Button>
                 </>
+              ) : null}
+              {can(role, "approve_nhatky") && isChot(draft.Trang_thai) ? (
+                <Button
+                  variant="secondary"
+                  onClick={() => {
+                    const r = reopenLog(draft.Log_ID, email);
+                    if (!r.ok) toast.error(r.error);
+                    else {
+                      toast.success("Đã mở lại — có thể sửa rồi gửi.");
+                      setDraft({ ...draft, Trang_thai: "NHAP" });
+                    }
+                  }}
+                >
+                  Mở lại
+                </Button>
               ) : null}
             </div>
           </footer>

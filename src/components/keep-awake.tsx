@@ -7,7 +7,7 @@ type Lock = {
   addEventListener: (type: "release", fn: () => void) => void;
 };
 
-export function KeepAwake() {
+export function KeepAwake({ className }: { className?: string }) {
   const [on, setOn] = useState(false);
   const [ok, setOk] = useState(false);
 
@@ -49,7 +49,7 @@ export function KeepAwake() {
   if (!ok) return null;
 
   return (
-    <Button size="sm" variant={on ? "default" : "secondary"} onClick={() => setOn((v) => !v)}>
+    <Button size="sm" className={className} variant={on ? "default" : "secondary"} onClick={() => setOn((v) => !v)}>
       <Smartphone className="size-3.5" strokeWidth={1.75} />
       {on ? "Đang giữ màn hình" : "Giữ màn hình"}
     </Button>
