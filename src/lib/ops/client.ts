@@ -36,7 +36,7 @@ import {
 function sheetToast(sheet?: SheetSyncInfo) {
   if (!sheet) return;
   if (sheet.ok) toast.success(`Đã ghi tab ${sheet.tabs.join(" · ")}.`);
-  else toast.error(sheet.error || "Không ghi được Sheet vận hành.");
+  else toast.error(sheet.error || "Không ghi được Sheet vận hành.", { id: "ops-sheet" });
 }
 
 function errMsg(err: unknown, fallback: string) {
@@ -68,14 +68,14 @@ export async function reloadOpsLedger() {
       sheetAudit: ledger.audit,
       sheetSync: ledger.sheet,
     });
-    if (!ledger.sheet.ok) toast.error(ledger.sheet.error || "Không đọc được Sheet vận hành.");
+    if (!ledger.sheet.ok) toast.error(ledger.sheet.error || "Không đọc được Sheet vận hành.", { id: "ops-sheet" });
     return ledger;
   } catch (err) {
     const error = errMsg(err, "Không đọc được Sheet vận hành.");
     useAppStore.setState({
       sheetSync: { ok: false, mode: "sheets", tabs: [], error },
     });
-    toast.error(error);
+    toast.error(error, { id: "ops-sheet" });
     return null;
   }
 }

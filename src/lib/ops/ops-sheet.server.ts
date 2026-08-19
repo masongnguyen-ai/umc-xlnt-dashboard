@@ -6,7 +6,7 @@ import {
   appendMainRow,
   appendMainRows,
   ensureMainTab,
-  getMainSheetData,
+  getMainSheetsData,
   GoogleSheetsError,
   type SheetCell,
 } from "@/lib/google-sheets";
@@ -122,13 +122,32 @@ function vnNow() {
     .replace(" ", "T");
 }
 
+type OpsLedger = {
+  logs: OpLog[];
+  doses: ChemDoseLog[];
+  confirms: ChemImportConfirm[];
+  restocks: ChemRestockRequest[];
+  incidents: Incident[];
+  maintenances: Maintenance[];
+  audit: SheetAuditRow[];
+  sheet: SheetSyncInfo;
+};
+
+let opsTabsReady = false;
+let ledgerCache: { at: number; data: OpsLedger } | null = null;
+let ledgerInflight: Promise<OpsLedger> | null = null;
+const LEDGER_TTL_MS = 20_000;
+
 export async function ensureOpsTabs() {
+  if (opsTabsReady) return;
   for (const tab of OPS_SHEET_TABS) {
     await ensureMainTab(tab, HEADERS[tab]);
   }
+  opsTabsReady = true;
 }
 
 function okSheet(tabs: string[]): SheetSyncInfo {
+  ledgerCache = null;
   return { ok: true, mode: "sheets", tabs };
 }
 
@@ -538,85 +557,79 @@ export async function appendLoginLog(input: {
   }
 }
 
-export async function loadOpsLedger(): Promise<{
-  logs: OpLog[];
-  doses: ChemDoseLog[];
-  confirms: ChemImportConfirm[];
-  restocks: ChemRestockRequest[];
-  incidents: Incident[];
-  maintenances: Maintenance[];
-  audit: SheetAuditRow[];
-  sheet: SheetSyncInfo;
-}> {
+export async function loadOpsLedger(): Promise<OpsLedger> {
+  if (ledgerCache && Date.now() - ledgerCache.at < LEDGER_TTL_MS) return ledgerCache.data;
+  if (ledgerInflight) return ledgerInflight;
+  ledgerInflight = loadOpsLedgerFresh().finally(() => {
+    ledgerInflight = null;
+  });
+  return ledgerInflight;
+}
+
+async function loadOpsLedgerFresh(): Promise<OpsLedger> {
   await ensureOpsTabs();
   const audit: SheetAuditRow[] = [];
-  const read = async (
+  const summarize = (
     tab: (typeof OPS_SHEET_TABS)[number],
     module: string,
+    rows: SheetCell[][],
     statusCol: number | null,
     group: (row: SheetCell[]) => string,
+    error?: string,
   ) => {
-    try {
-      const rows = await getMainSheetData(tab);
-      const last = new Map<string, SheetCell[]>();
-      for (const row of rows.slice(1)) {
-        const id = group(row).trim();
-        if (id) last.set(id, row);
-      }
-      let pending = 0;
-      let chot = 0;
-      if (statusCol != null) {
-        for (const row of last.values()) {
-          const st = asApproval(cell(row, statusCol));
-          if (isPending(st)) pending += 1;
-          if (isChot(st)) chot += 1;
-        }
-      }
-      audit.push({ module, tab, wrote: last.size > 0, pending, chot });
-      return rows;
-    } catch (err) {
-      audit.push({
-        module,
-        tab,
-        wrote: false,
-        pending: 0,
-        chot: 0,
-        error: err instanceof Error ? err.message : String(err),
-      });
-      return [] as SheetCell[][];
+    if (error) {
+      audit.push({ module, tab, wrote: false, pending: 0, chot: 0, error });
+      return;
     }
+    const last = new Map<string, SheetCell[]>();
+    for (const row of rows.slice(1)) {
+      const id = group(row).trim();
+      if (id) last.set(id, row);
+    }
+    let pending = 0;
+    let chot = 0;
+    if (statusCol != null) {
+      for (const row of last.values()) {
+        const st = asApproval(cell(row, statusCol));
+        if (isPending(st)) pending += 1;
+        if (isChot(st)) chot += 1;
+      }
+    }
+    audit.push({ module, tab, wrote: last.size > 0, pending, chot });
   };
 
-  const [nhatky, lieu, nhap, dd, suco, baotri] = await Promise.all([
-    read("NHAT_KY", "Nhật ký ca", 8, (row) => cell(row, 0)),
-    read("HOA_CHAT_LIEU", "Liều hóa chất", 8, (row) => cell(row, 1)),
-    read("HOA_CHAT_NHAP", "Nhập xe", 7, (row) => cell(row, 1)),
-    read("HOA_CHAT_DIEU_DONG", "Điều động", 6, (row) => cell(row, 0).split("__")[0] ?? ""),
-    read("SU_CO_TB", "Sự cố thiết bị", 6, (row) => cell(row, 0)),
-    read("BAO_TRI_TB", "Bảo trì", null, (row) => cell(row, 0)),
-  ]);
+  let byTab: Record<string, SheetCell[][]> = {};
+  let batchError = "";
   try {
-    const loginRows = await getMainSheetData("LOGIN_LOG");
-    audit.push({ module: "Đăng nhập", tab: "LOGIN_LOG", wrote: loginRows.length > 1, pending: 0, chot: 0 });
+    byTab = await getMainSheetsData([...OPS_SHEET_TABS]);
   } catch (err) {
-    audit.push({
-      module: "Đăng nhập",
-      tab: "LOGIN_LOG",
-      wrote: false,
-      pending: 0,
-      chot: 0,
-      error: err instanceof Error ? err.message : String(err),
-    });
+    batchError = err instanceof Error ? err.message : String(err);
   }
 
+  const tabRows = (tab: (typeof OPS_SHEET_TABS)[number]) => byTab[tab] ?? [];
+  summarize("NHAT_KY", "Nhật ký ca", tabRows("NHAT_KY"), 8, (row) => cell(row, 0), batchError || undefined);
+  summarize("HOA_CHAT_LIEU", "Liều hóa chất", tabRows("HOA_CHAT_LIEU"), 8, (row) => cell(row, 1), batchError || undefined);
+  summarize("HOA_CHAT_NHAP", "Nhập xe", tabRows("HOA_CHAT_NHAP"), 7, (row) => cell(row, 1), batchError || undefined);
+  summarize(
+    "HOA_CHAT_DIEU_DONG",
+    "Điều động",
+    tabRows("HOA_CHAT_DIEU_DONG"),
+    6,
+    (row) => cell(row, 0).split("__")[0] ?? "",
+    batchError || undefined,
+  );
+  summarize("SU_CO_TB", "Sự cố thiết bị", tabRows("SU_CO_TB"), 6, (row) => cell(row, 0), batchError || undefined);
+  summarize("BAO_TRI_TB", "Bảo trì", tabRows("BAO_TRI_TB"), null, (row) => cell(row, 0), batchError || undefined);
+  summarize("LOGIN_LOG", "Đăng nhập", tabRows("LOGIN_LOG"), null, (row) => cell(row, 0), batchError || undefined);
+
   const failed = audit.filter((a) => a.error);
-  return {
-    logs: parseNhatKy(nhatky),
-    doses: parseHoaChatLieu(lieu),
-    confirms: parseHoaChatNhap(nhap),
-    restocks: parseDieuDong(dd),
-    incidents: parseSuCo(suco),
-    maintenances: parseBaoTri(baotri),
+  const data: OpsLedger = {
+    logs: parseNhatKy(tabRows("NHAT_KY")),
+    doses: parseHoaChatLieu(tabRows("HOA_CHAT_LIEU")),
+    confirms: parseHoaChatNhap(tabRows("HOA_CHAT_NHAP")),
+    restocks: parseDieuDong(tabRows("HOA_CHAT_DIEU_DONG")),
+    incidents: parseSuCo(tabRows("SU_CO_TB")),
+    maintenances: parseBaoTri(tabRows("BAO_TRI_TB")),
     audit,
     sheet: {
       ok: failed.length === 0,
@@ -625,4 +638,6 @@ export async function loadOpsLedger(): Promise<{
       error: failed.length ? failed.map((f) => `${f.tab}: ${f.error}`).join(" · ") : undefined,
     },
   };
+  ledgerCache = { at: Date.now(), data };
+  return data;
 }

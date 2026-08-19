@@ -1,7 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { authMiddleware } from "@/lib/auth/middleware";
 import type { AppUserRecord, ChemQty, ChemReceipt, ChemRestockStatus, ChemTx, Maintenance, OpLog } from "@/lib/types";
-import type { ChemSnapshot, OpsState, StaffMe } from "./types";
+import { OPS_SHEET_TABS, type ChemSnapshot, type OpsState, type StaffMe } from "./types";
 
 export const getStaffMeFn = createServerFn({ method: "GET" })
   .middleware([authMiddleware])
@@ -9,28 +9,11 @@ export const getStaffMeFn = createServerFn({ method: "GET" })
     const { resolveStaff, StaffBlockedError } = await import("./staff.server");
     try {
       const staff = await resolveStaff(context.userId);
-      try {
-        const { ensureOpsTabs } = await import("./ops-sheet.server");
-        const { OPS_SHEET_TABS } = await import("./types");
-        await ensureOpsTabs();
-        return {
-          ok: true as const,
-          staff,
-          sheet: { ok: true, mode: "sheets" as const, tabs: [...OPS_SHEET_TABS] },
-        };
-      } catch (err) {
-        const { OPS_SHEET_TABS } = await import("./types");
-        return {
-          ok: true as const,
-          staff,
-          sheet: {
-            ok: false,
-            mode: "sheets" as const,
-            tabs: [...OPS_SHEET_TABS],
-            error: err instanceof Error ? err.message : "Không kết nối được Sheet vận hành.",
-          },
-        };
-      }
+      return {
+        ok: true as const,
+        staff,
+        sheet: { ok: true, mode: "sheets" as const, tabs: [...OPS_SHEET_TABS] },
+      };
     } catch (err) {
       if (err instanceof StaffBlockedError) return { ok: false, blocked: err.message };
       throw err;

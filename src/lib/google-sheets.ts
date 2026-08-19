@@ -189,6 +189,11 @@ function logErr(action: string, err: unknown) {
   console.error(`[google-sheets] ${action}: ${detail}`);
 }
 
+function isQuotaErr(err: unknown) {
+  const detail = err instanceof Error ? err.message : String(err);
+  return /Quota exceeded|rateLimitExceeded|RESOURCE_EXHAUSTED/i.test(detail);
+}
+
 function wrap(err: unknown, action: string): never {
   logErr(action, err);
   if (err instanceof GoogleSheetsError) throw err;
@@ -199,14 +204,36 @@ function wrap(err: unknown, action: string): never {
       { cause: err },
     );
   }
+  if (isQuotaErr(err)) {
+    throw new GoogleSheetsError(
+      `${action}: Google Sheets tạm quá lượt đọc (60/phút). Đợi khoảng 1 phút rồi bấm Làm mới.`,
+      { cause: err },
+    );
+  }
   throw new GoogleSheetsError(`${action}: ${detail}`, { cause: err });
+}
+
+async function sheetsCall<T>(action: string, fn: () => Promise<T>): Promise<T> {
+  try {
+    return await fn();
+  } catch (err) {
+    if (isQuotaErr(err)) {
+      await new Promise((r) => setTimeout(r, 2000));
+      try {
+        return await fn();
+      } catch (err2) {
+        wrap(err2, action);
+      }
+    }
+    wrap(err, action);
+  }
 }
 
 /** Đọc toàn bộ ô có dữ liệu của một tab (kèm hàng tiêu đề). */
 export async function getSheetData(spreadsheetId: string, sheetName: string): Promise<SheetCell[][]> {
   const id = assertId(spreadsheetId);
   const tab = assertTab(sheetName);
-  try {
+  return sheetsCall(`Không đọc được ${id.slice(0, 8)}… / ${tab}`, async () => {
     const res = await getSheets().spreadsheets.values.get({
       spreadsheetId: id,
       range: tabRange(tab),
@@ -215,9 +242,7 @@ export async function getSheetData(spreadsheetId: string, sheetName: string): Pr
       dateTimeRenderOption: "FORMATTED_STRING",
     });
     return (res.data.values ?? []) as SheetCell[][];
-  } catch (err) {
-    wrap(err, `Không đọc được ${id.slice(0, 8)}… / ${tab}`);
-  }
+  });
 }
 
 /** Thêm một dòng mới vào cuối tab (não chính). */
@@ -330,35 +355,72 @@ export async function appendMainRows(sheetName: string, rows: SheetCell[][]) {
   }
 }
 
-export async function listMainTabTitles(): Promise<string[]> {
-  try {
+let titlesCache: { at: number; titles: string[] } | null = null;
+let titlesInflight: Promise<string[]> | null = null;
+const TITLES_TTL_MS = 5 * 60 * 1000;
+
+function rememberTitles(titles: string[]) {
+  titlesCache = { at: Date.now(), titles };
+}
+
+export async function listMainTabTitles(force = false): Promise<string[]> {
+  if (!force && titlesCache && Date.now() - titlesCache.at < TITLES_TTL_MS) {
+    return titlesCache.titles;
+  }
+  if (titlesInflight) return titlesInflight;
+  titlesInflight = sheetsCall("Không liệt kê tab não chính", async () => {
     const res = await getSheets().spreadsheets.get({
       spreadsheetId: MAIN_SHEET_ID,
       fields: "sheets.properties.title",
     });
-    return (res.data.sheets ?? []).map((s) => s.properties?.title ?? "").filter(Boolean);
-  } catch (err) {
-    wrap(err, "Không liệt kê tab não chính");
-  }
+    const titles = (res.data.sheets ?? []).map((s) => s.properties?.title ?? "").filter(Boolean);
+    rememberTitles(titles);
+    return titles;
+  }).finally(() => {
+    titlesInflight = null;
+  });
+  return titlesInflight;
 }
 
-/** Tạo tab + header nếu chưa có. Không xóa dữ liệu cũ. */
+/** Đọc nhiều tab não chính trong một request (tránh hết hạn mức 60 đọc/phút). */
+export async function getMainSheetsData(sheetNames: string[]): Promise<Record<string, SheetCell[][]>> {
+  const tabs = sheetNames.map(assertTab);
+  if (!tabs.length) return {};
+  return sheetsCall("Không đọc được tab não chính", async () => {
+    const res = await getSheets().spreadsheets.values.batchGet({
+      spreadsheetId: MAIN_SHEET_ID,
+      ranges: tabs.map((tab) => tabRange(tab)),
+      majorDimension: "ROWS",
+      valueRenderOption: "UNFORMATTED_VALUE",
+      dateTimeRenderOption: "FORMATTED_STRING",
+    });
+    const out: Record<string, SheetCell[][]> = {};
+    for (let i = 0; i < tabs.length; i++) {
+      out[tabs[i]!] = (res.data.valueRanges?.[i]?.values ?? []) as SheetCell[][];
+    }
+    return out;
+  });
+}
+
+/** Tạo tab + header nếu chưa có. Không xóa dữ liệu cũ. Tab đã có thì không đọc lại. */
 export async function ensureMainTab(title: string, headers: string[]): Promise<void> {
   const tab = assertTab(title);
   assertWritable(MAIN_SHEET_ID);
   const titles = await listMainTabTitles();
-  if (!titles.includes(tab)) {
-    try {
+  if (titles.includes(tab)) return;
+  try {
+    await sheetsCall(`Không tạo tab ${tab}`, async () => {
       await getSheets().spreadsheets.batchUpdate({
         spreadsheetId: MAIN_SHEET_ID,
         requestBody: { requests: [{ addSheet: { properties: { title: tab } } }] },
       });
-    } catch (err) {
-      wrap(err, `Không tạo tab ${tab}`);
-    }
-    await appendMainRow(tab, headers);
+    });
+    rememberTitles([...titles, tab]);
+  } catch (err) {
+    const detail = err instanceof Error ? err.message : String(err);
+    if (!/already exists|duplicate/i.test(detail)) throw err;
+    titlesCache = null;
     return;
   }
-  const rows = await getMainSheetData(tab);
-  if (!rows.length) await appendMainRow(tab, headers);
+  await appendMainRow(tab, headers);
 }
