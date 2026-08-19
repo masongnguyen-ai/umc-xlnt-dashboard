@@ -84,15 +84,19 @@ export const saveStaffFn = createServerFn({ method: "POST" })
     const { upsertStaff, listStaff } = await import("./staff.server");
     const { writeAudit } = await import("./audit.server");
     const saved = await upsertStaff(context.userId, data);
-    const actor = await (await import("./staff.server")).resolveStaff(context.userId);
-    await writeAudit({
-      actorEmail: actor.Email,
-      actorRole: actor.Vai_tro,
-      action: "LUU_NHAN_SU",
-      entity: "staff",
-      entityId: saved.User_ID,
-      after: saved,
-    });
+    try {
+      const actor = await (await import("./staff.server")).resolveStaff(context.userId);
+      await writeAudit({
+        actorEmail: actor.Email,
+        actorRole: actor.Vai_tro,
+        action: "LUU_NHAN_SU",
+        entity: "staff",
+        entityId: saved.User_ID,
+        after: saved,
+      });
+    } catch {
+      /* nhật ký số lỗi không được chặn lưu nhân sự */
+    }
     return { ok: true as const, staff: saved, users: await listStaff() };
   });
 

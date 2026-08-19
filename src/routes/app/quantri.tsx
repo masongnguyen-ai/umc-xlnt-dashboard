@@ -9,7 +9,6 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { CSDL, CSDL_TABS, DESIGN_SPECS, GPMT_FLOW, PERF_2023, PLANT_HYDRAULICS } from "@/lib/csdl";
 import { HtmlFilesCard } from "@/components/html-files-card";
 import { persistStaff } from "@/lib/ops/client";
@@ -26,6 +25,8 @@ function QuanTri() {
   const sourceLabel = useAppStore((s) => s.sourceLabel);
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState<AppUserRecord | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [saveErr, setSaveErr] = useState("");
 
   return (
     <div className="mx-auto max-w-5xl space-y-8">
@@ -45,6 +46,7 @@ function QuanTri() {
                 Trang_thai: "HOAT_DONG",
                 Ngay_tao: new Date().toISOString().slice(0, 10),
               });
+              setSaveErr("");
               setOpen(true);
             }}
           >
@@ -80,6 +82,7 @@ function QuanTri() {
                       variant="secondary"
                       onClick={() => {
                         setForm({ ...u });
+                        setSaveErr("");
                         setOpen(true);
                       }}
                     >
@@ -233,21 +236,44 @@ function QuanTri() {
         </Button>
       </section>
 
-      <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent>
+      <Dialog open={open} onOpenChange={(v) => !saving && setOpen(v)}>
+        <DialogContent className="max-h-[90dvh] overflow-y-auto">
           {form ? (
             <>
               <DialogHeader>
                 <DialogTitle>{users.some((u) => u.User_ID === form.User_ID) ? "Sửa tài khoản" : "Thêm tài khoản"}</DialogTitle>
               </DialogHeader>
-              <div className="grid gap-3">
+              <form
+                className="grid gap-3"
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  if (!form.Email.includes("@") || !form.Ho_ten.trim()) {
+                    setSaveErr("Cần họ tên và email hợp lệ.");
+                    toast.error("Cần họ tên và email hợp lệ.");
+                    return;
+                  }
+                  setSaveErr("");
+                  setSaving(true);
+                  const payload = { ...form, Email: form.Email.toLowerCase().trim() };
+                  useAppStore.getState().saveUser(payload);
+                  void persistStaff(payload)
+                    .then(() => {
+                      setOpen(false);
+                    })
+                    .catch((err) => {
+                      const msg = err instanceof Error ? err.message : "Không lưu được tài khoản.";
+                      setSaveErr(msg);
+                    })
+                    .finally(() => setSaving(false));
+                }}
+              >
                 <div>
                   <Label>Họ tên</Label>
                   <Input className="mt-1" value={form.Ho_ten} onChange={(e) => setForm({ ...form, Ho_ten: e.target.value })} />
                 </div>
                 <div>
                   <Label>Email Google</Label>
-                  <Input className="mt-1" value={form.Email} onChange={(e) => setForm({ ...form, Email: e.target.value })} />
+                  <Input className="mt-1" type="email" value={form.Email} onChange={(e) => setForm({ ...form, Email: e.target.value })} />
                 </div>
                 <div>
                   <Label>Đơn vị</Label>
@@ -256,48 +282,34 @@ function QuanTri() {
                 <div className="grid grid-cols-2 gap-3">
                   <div>
                     <Label>Vai trò</Label>
-                    <Select value={form.Vai_tro} onValueChange={(v) => setForm({ ...form, Vai_tro: v as Role })}>
-                      <SelectTrigger className="mt-1">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="QUAN_LY">Quản lý</SelectItem>
-                        <SelectItem value="NHA_THAU">Nhà thầu</SelectItem>
-                        <SelectItem value="CA_TRUC">Ca trực</SelectItem>
-                      </SelectContent>
-                    </Select>
+                    <select
+                      className="mt-1 flex h-10 w-full rounded-md border border-border bg-surface2 px-3 text-sm text-fg"
+                      value={form.Vai_tro}
+                      onChange={(e) => setForm({ ...form, Vai_tro: e.target.value as Role })}
+                    >
+                      <option value="QUAN_LY">Quản lý</option>
+                      <option value="NHA_THAU">Nhà thầu</option>
+                      <option value="CA_TRUC">Ca trực</option>
+                    </select>
                   </div>
                   <div>
                     <Label>Trạng thái</Label>
-                    <Select value={form.Trang_thai} onValueChange={(v) => setForm({ ...form, Trang_thai: v as UserStatus })}>
-                      <SelectTrigger className="mt-1">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="HOAT_DONG">Hoạt động</SelectItem>
-                        <SelectItem value="TAM_KHOA">Tạm khóa</SelectItem>
-                        <SelectItem value="NGUNG">Ngừng</SelectItem>
-                      </SelectContent>
-                    </Select>
+                    <select
+                      className="mt-1 flex h-10 w-full rounded-md border border-border bg-surface2 px-3 text-sm text-fg"
+                      value={form.Trang_thai}
+                      onChange={(e) => setForm({ ...form, Trang_thai: e.target.value as UserStatus })}
+                    >
+                      <option value="HOAT_DONG">Hoạt động</option>
+                      <option value="TAM_KHOA">Tạm khóa</option>
+                      <option value="NGUNG">Ngừng</option>
+                    </select>
                   </div>
                 </div>
-              </div>
-              <Button
-                onClick={() => {
-                  if (!form.Email.includes("@") || !form.Ho_ten.trim()) {
-                    toast.error("Cần họ tên và email hợp lệ.");
-                    return;
-                  }
-                  void persistStaff({ ...form, Email: form.Email.toLowerCase().trim() })
-                    .then(() => {
-                      toast.success("Đã lưu tài khoản trên máy chủ. Người này đăng nhập Google là vào đúng vai trò.");
-                      setOpen(false);
-                    })
-                    .catch((err) => toast.error(err instanceof Error ? err.message : "Không lưu được tài khoản."));
-                }}
-              >
-                Lưu
-              </Button>
+                {saveErr ? <p className="whitespace-pre-line text-sm text-bad">{saveErr}</p> : null}
+                <Button type="submit" className="w-full" disabled={saving}>
+                  {saving ? "Đang lưu…" : "Lưu"}
+                </Button>
+              </form>
             </>
           ) : null}
         </DialogContent>

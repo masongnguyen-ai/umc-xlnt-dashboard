@@ -50,11 +50,12 @@ function toRecord(row: StaffRow): AppUserRecord {
 async function seedStaff() {
   const sql = await getSql();
   for (const u of SEED_USERS) {
+    const email = u.Email.toLowerCase();
     await sql`
       insert into app_staff (
         user_id, email, ho_ten, so_dien_thoai, don_vi, ghi_chu, vai_tro, trang_thai, ngay_tao
       ) values (
-        ${u.User_ID}, ${u.Email.toLowerCase()}, ${u.Ho_ten}, ${u.So_dien_thoai},
+        ${u.User_ID}, ${email}, ${u.Ho_ten}, ${u.So_dien_thoai},
         ${u.Don_vi}, ${u.Ghi_chu}, ${u.Vai_tro}, ${u.Trang_thai}, ${u.Ngay_tao}
       )
       on conflict (email) do nothing
@@ -155,24 +156,52 @@ export async function upsertStaff(authUserId: string, rec: AppUserRecord): Promi
   await requireAction(authUserId, "write_quantri");
   const sql = await getSql();
   const email = rec.Email.toLowerCase().trim();
+  const hoTen = rec.Ho_ten.trim();
+  const sdt = rec.So_dien_thoai ?? "";
+  const donVi = rec.Don_vi ?? "";
+  const ghiChu = rec.Ghi_chu ?? "";
   const id = rec.User_ID || `USR-${Date.now()}`;
   const ngay = rec.Ngay_tao || new Date().toISOString().slice(0, 10);
-  await sql`
-    insert into app_staff (
-      user_id, email, ho_ten, so_dien_thoai, don_vi, ghi_chu, vai_tro, trang_thai, ngay_tao
-    ) values (
-      ${id}, ${email}, ${rec.Ho_ten.trim()}, ${rec.So_dien_thoai ?? ""},
-      ${rec.Don_vi ?? ""}, ${rec.Ghi_chu ?? ""}, ${rec.Vai_tro}, ${rec.Trang_thai}, ${ngay}
-    )
-    on conflict (email) do update set
-      ho_ten = excluded.ho_ten,
-      so_dien_thoai = excluded.so_dien_thoai,
-      don_vi = excluded.don_vi,
-      ghi_chu = excluded.ghi_chu,
-      vai_tro = excluded.vai_tro,
-      trang_thai = excluded.trang_thai,
-      ngay_sua = now()
-  `;
+
+  const byEmail = await sql<{ user_id: string }>`select user_id from app_staff where email = ${email} limit 1`;
+  if (byEmail[0]) {
+    await sql`
+      update app_staff set
+        ho_ten = ${hoTen},
+        so_dien_thoai = ${sdt},
+        don_vi = ${donVi},
+        ghi_chu = ${ghiChu},
+        vai_tro = ${rec.Vai_tro},
+        trang_thai = ${rec.Trang_thai},
+        ngay_sua = now()
+      where email = ${email}
+    `;
+  } else {
+    const byId = await sql<{ user_id: string }>`select user_id from app_staff where user_id = ${id} limit 1`;
+    if (byId[0]) {
+      await sql`
+        update app_staff set
+          email = ${email},
+          ho_ten = ${hoTen},
+          so_dien_thoai = ${sdt},
+          don_vi = ${donVi},
+          ghi_chu = ${ghiChu},
+          vai_tro = ${rec.Vai_tro},
+          trang_thai = ${rec.Trang_thai},
+          ngay_sua = now()
+        where user_id = ${id}
+      `;
+    } else {
+      await sql`
+        insert into app_staff (
+          user_id, email, ho_ten, so_dien_thoai, don_vi, ghi_chu, vai_tro, trang_thai, ngay_tao
+        ) values (
+          ${id}, ${email}, ${hoTen}, ${sdt}, ${donVi}, ${ghiChu}, ${rec.Vai_tro}, ${rec.Trang_thai}, ${ngay}
+        )
+      `;
+    }
+  }
+
   const rows = await sql<StaffRow>`
     select user_id, auth_user_id, email, ho_ten, so_dien_thoai, don_vi, ghi_chu, vai_tro, trang_thai, ngay_tao
     from app_staff where email = ${email}
