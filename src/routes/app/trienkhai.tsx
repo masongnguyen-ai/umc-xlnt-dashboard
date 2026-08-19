@@ -1,7 +1,8 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { CheckCircle2, FileDown, ShieldAlert, Smartphone } from "lucide-react";
+import { CheckCircle2, FileDown, FolderTree, ShieldAlert, Smartphone } from "lucide-react";
 import { HtmlFilesCard } from "@/components/html-files-card";
 import { InstallApp } from "@/components/install-app";
+import { DRIVE_TREE } from "@/lib/drive-tree";
 
 export const Route = createFileRoute("/app/trienkhai")({ component: TrienKhai });
 
@@ -58,6 +59,52 @@ function TrienKhai() {
       </section>
 
       <InstallApp />
+
+      <section className="space-y-3">
+        <h2 className="flex items-center gap-2 text-sm font-semibold">
+          <FolderTree className="size-4 text-accent" strokeWidth={1.75} />
+          Gom về một thư mục Drive — UMC_XLNT
+        </h2>
+        <p className="text-sm text-muted">
+          Không để file rải trên máy, Gmail, Drive riêng từng người. Tạo <strong className="text-fg">một thư mục gốc</strong> trên Drive 5 TB, kéo hết vào đó. Điện thoại mở Drive là đủ — không cần bật máy tính.
+        </p>
+        <ol className="list-decimal space-y-1 pl-5 text-sm text-muted">
+          <li>Drive → Mới → Thư mục → tên <strong className="text-fg">UMC_XLNT</strong>.</li>
+          <li>Tạo 5 thư mục con đúng tên dưới đây (hoặc để app tự tạo nhánh ảnh khi ghi sự cố).</li>
+          <li>
+            Kéo 2 bảng tính vào đúng chỗ: CSDL vận hành → <strong className="text-fg">01_CSDL</strong>; sheet 3 đồng hồ →{" "}
+            <strong className="text-fg">02_Luu_luong</strong> (kéo file, không copy).
+          </li>
+          <li>
+            Chia sẻ thư mục gốc quyền <strong className="text-fg">Người chỉnh sửa</strong> cho ca trực / nhà thầu cần đưa ảnh, và cho tài khoản máy chủ Google của web.
+          </li>
+          <li>
+            Tab CONFIGS: dán ID thư mục gốc (sau <span className="font-mono text-xs">/folders/</span>) vào{" "}
+            <strong className="text-fg">DRIVE_ROOT_ID</strong> hoặc <strong className="text-fg">UPLOAD_FOLDER_ID</strong>.
+          </li>
+        </ol>
+        <div className="overflow-x-auto rounded-xl border border-border">
+          <table className="w-full text-sm">
+            <thead className="bg-surface2 text-[11px] uppercase tracking-wide text-muted">
+              <tr>
+                <th className="px-3 py-2 text-left font-medium">Thư mục</th>
+                <th className="px-3 py-2 text-left font-medium">Để gì vào đây</th>
+              </tr>
+            </thead>
+            <tbody>
+              {DRIVE_TREE.map((r) => (
+                <tr key={r.folder} className="border-t border-border">
+                  <td className="px-3 py-2 font-mono text-xs">{r.folder}</td>
+                  <td className="px-3 py-2 text-muted">{r.note}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+        <p className="text-xs text-dim">
+          Ảnh sự cố vào <span className="font-mono">03_Anh_chung_minh/su_co/2026-08</span>. Chụp bằng điện thoại: lưu vào thư mục đó trên app Drive, rồi dán link khi ghi sự cố — không nén 1 MB, Drive chứa thoải mái.
+        </p>
+      </section>
 
       <section className="space-y-3">
         <h2 className="flex items-center gap-2 text-sm font-semibold">

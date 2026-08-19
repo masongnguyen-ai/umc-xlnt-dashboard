@@ -73,7 +73,7 @@ function CanhBao() {
         <Kpi label="Đã khắc phục" value={String(alerts.filter((a) => a.Trang_thai === "DA_XU_LY").length)} tone="ok" />
       </div>
 
-      <div className="flex flex-wrap items-end gap-2">
+      <div className="flex flex-wrap items-end gap-2 rounded-lg border border-border bg-surface p-2">
         <div>
           <Label>Từ ngày</Label>
           <Input type="date" value={from} onChange={(e) => setFrom(e.target.value)} className="mt-1 w-40" />
@@ -115,7 +115,7 @@ function CanhBao() {
       {filtered.length === 0 ? (
         <EmptyState title="Không có cảnh báo khớp bộ lọc" hint="Đổi khoảng ngày hoặc bấm Quét lại sau khi sửa ngưỡng." />
       ) : (
-        <div className="overflow-x-auto rounded-xl border border-border">
+        <div className="overflow-x-auto rounded-lg border border-border shadow-panel">
           <table className="w-full min-w-[760px] text-sm">
             <thead className="bg-surface2 text-[11px] uppercase tracking-wide text-muted">
               <tr>
@@ -128,7 +128,7 @@ function CanhBao() {
             </thead>
             <tbody>
               {filtered.map((a) => (
-                <tr key={a.Alert_ID} className="border-t border-border hover:bg-surface2/40">
+                <tr key={a.Alert_ID} className="border-t border-border hover:bg-surface2">
                   <td className="px-3 py-2.5 whitespace-nowrap">{fmtDate(a.Ngay)}</td>
                   <td className="px-3 py-2.5">
                     <div className="font-medium">{a.Chi_so}</div>

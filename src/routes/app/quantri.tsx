@@ -31,7 +31,7 @@ function QuanTri() {
     <div className="mx-auto max-w-5xl space-y-8">
       <section>
         <div className="mb-3 flex items-center justify-between">
-          <h2 className="text-sm font-semibold">Nhân sự</h2>
+          <h2 className="text-xs font-semibold uppercase tracking-[0.14em] text-muted">Nhân sự</h2>
           <Button
             onClick={() => {
               setForm({
@@ -51,7 +51,7 @@ function QuanTri() {
             Thêm tài khoản
           </Button>
         </div>
-        <div className="overflow-x-auto rounded-xl border border-border">
+        <div className="overflow-x-auto rounded-lg border border-border shadow-panel">
           <table className="w-full min-w-[680px] text-sm">
             <thead className="bg-surface2 text-[11px] uppercase tracking-wide text-muted">
               <tr>
@@ -64,7 +64,7 @@ function QuanTri() {
             </thead>
             <tbody>
               {users.map((u) => (
-                <tr key={u.User_ID} className="border-t border-border">
+                <tr key={u.User_ID} className="border-t border-border hover:bg-surface2">
                   <td className="px-3 py-2.5 font-medium">{u.Ho_ten}</td>
                   <td className="px-3 py-2.5 font-mono text-xs">{u.Email}</td>
                   <td className="px-3 py-2.5 text-muted">{u.Don_vi}</td>
@@ -93,10 +93,10 @@ function QuanTri() {
         </div>
       </section>
 
-      <section className="rounded-xl border border-border bg-surface p-5">
+      <section className="rounded-lg border border-border bg-surface p-5 shadow-panel">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
-            <h2 className="text-sm font-semibold">Cơ sở dữ liệu Drive</h2>
+            <h2 className="text-xs font-semibold uppercase tracking-[0.14em] text-muted">Cơ sở dữ liệu Drive</h2>
             <p className="mt-1 text-sm text-muted">{sourceLabel}</p>
             <p className="mt-1 text-xs text-dim">
               {CSDL.note} Lần nạp: {lastSynced ? lastSynced.slice(0, 16).replace("T", " ") : "—"}.
@@ -135,8 +135,8 @@ function QuanTri() {
         </div>
       </section>
 
-      <section className="rounded-xl border border-border bg-surface p-5">
-        <h2 className="text-sm font-semibold">Công trình · GPMT</h2>
+      <section className="rounded-lg border border-border bg-surface p-5 shadow-panel">
+        <h2 className="text-xs font-semibold uppercase tracking-[0.14em] text-muted">Công trình · GPMT</h2>
         <p className="mt-1 text-sm text-muted">
           Bể điều hòa 600 = {PLANT_HYDRAULICS.eq600} m³, hệ 220 = {PLANT_HYDRAULICS.eq220} m³, lưu {PLANT_HYDRAULICS.retentionHours} giờ.
           Bơm trung chuyển 600→220 bật {PLANT_HYDRAULICS.transferOn}, tắt {PLANT_HYDRAULICS.transferOff}.
@@ -197,8 +197,8 @@ function QuanTri() {
         </div>
       </section>
 
-      <section className="rounded-xl border border-border bg-surface p-5">
-        <h2 className="text-sm font-semibold">Cấu hình nhà máy</h2>
+      <section className="rounded-lg border border-border bg-surface p-5 shadow-panel">
+        <h2 className="text-xs font-semibold uppercase tracking-[0.14em] text-muted">Cấu hình nhà máy</h2>
         <dl className="mt-3 grid gap-2 text-sm sm:grid-cols-2">
           <div>
             <dt className="text-xs text-muted">Tên hệ thống</dt>

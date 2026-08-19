@@ -36,6 +36,7 @@ import { randomBytes } from "node:crypto";
 import { Pool } from "pg";
 import { ensureDbReady, getPglite } from "../db";
 import { emailAndPasswordEnabled } from "./email-password";
+import { googleOAuthCreds } from "./google-oauth";
 import { GROK_PROVIDERS } from "./providers";
 import { pgliteDialect } from "./pglite-dialect";
 import {
@@ -100,28 +101,63 @@ const LOCAL_DEV_ORIGINS: string[] = [
   "http://localhost:8080",
   "http://127.0.0.1:8080",
   "http://[::1]:8080",
+  "http://localhost:3000",
+  "http://127.0.0.1:3000",
 ];
 const baseURL = explicitBaseURL ?? {
   // Include loopback hosts so dynamic baseURL resolves for local email/password
   // (not only the preview wildcard).
-  allowedHosts: [...previewAllowedHosts, "localhost", "127.0.0.1", "[::1]"],
+  allowedHosts: [
+    ...previewAllowedHosts,
+    "localhost",
+    "127.0.0.1",
+    "[::1]",
+    "*.vercel.app",
+    "*.trycloudflare.com",
+  ],
   // `auto` → trust both http:// and https:// expansions of allowedHosts
   // (preview is https; local dev is http).
   protocol: "auto" as const,
   fallback: "http://localhost:8080",
 };
 
-// Origins Better Auth accepts on credentialed POSTs (sign-up/sign-in, etc.).
-// Missing entries here surface as FORBIDDEN "Invalid origin".
-const trustedOrigins: string[] = explicitBaseURL
-  ? [explicitBaseURL, ...LOCAL_DEV_ORIGINS]
-  : [
-      // Host wildcards (matched against Origin's host)
-      ...previewAllowedHosts,
-      // Full-origin wildcards (matched against Origin)
-      ...previewAllowedHosts.flatMap((host) => [`https://${host}`, `http://${host}`]),
-      ...LOCAL_DEV_ORIGINS,
-    ];
+function isLoopbackHostname(hostname: string) {
+  return hostname === "localhost" || hostname === "127.0.0.1" || hostname === "[::1]";
+}
+
+/**
+ * CSRF: cho phép origin cùng host với request (LAN / Cursor / Cloudflare),
+ * cộng loopback mọi cổng. Không tắt kiểm tra origin.
+ */
+const trustedOrigins = async (request?: Request): Promise<string[]> => {
+  const extra: string[] = [
+    ...previewAllowedHosts,
+    ...previewAllowedHosts.flatMap((host) => [`https://${host}`, `http://${host}`]),
+    ...LOCAL_DEV_ORIGINS,
+    "*.vercel.app",
+    "*.trycloudflare.com",
+  ];
+  const listed = env("TRUSTED_ORIGINS");
+  if (listed) extra.push(...listed.split(/[\s,]+/).filter(Boolean));
+  const vercel = env("VERCEL_URL")?.replace(/^https?:\/\//, "");
+  if (vercel) extra.push(`https://${vercel}`);
+  if (explicitBaseURL) extra.push(explicitBaseURL.replace(/\/$/, ""));
+  if (!request) return extra;
+  const headerOrigin = request.headers.get("origin") || "";
+  if (!headerOrigin || headerOrigin === "null") return extra;
+  try {
+    const originUrl = new URL(headerOrigin);
+    const reqHost = (request.headers.get("x-forwarded-host") || request.headers.get("host") || "")
+      .split(",")[0]
+      .trim();
+    if (isLoopbackHostname(originUrl.hostname) || originUrl.host === reqHost) {
+      extra.push(originUrl.origin);
+    }
+  } catch {
+    /* ignore malformed Origin */
+  }
+  return extra;
+};
 
 const databaseUrl = env("DATABASE_URL");
 
@@ -147,6 +183,8 @@ export const SESSION_TOKEN_COOKIE = "__Host-grok-auth.session_token";
 
 // Built separately so the `betterAuth({...})` call stays easy to edit without
 // breaking brackets (models often trip on the conditional plugin spread).
+const googleCreds = googleOAuthCreds();
+
 const grokOAuthPlugin = authConfigured
   ? genericOAuth({
       config: GROK_PROVIDERS.map(({ providerId, idp }) => ({
@@ -191,7 +229,10 @@ export const auth = betterAuth({
     encryptOAuthTokens: true,
     accountLinking: {
       enabled: true,
-      trustedProviders: GROK_PROVIDERS.map((p) => p.providerId),
+      trustedProviders: [
+        ...(googleCreds ? (["google"] as const) : []),
+        ...GROK_PROVIDERS.map((p) => p.providerId),
+      ],
       // X's synthetic email is never "verified", so don't gate linking on the
       // local user's email-verified state.
       requireLocalEmailVerified: false,
@@ -206,6 +247,18 @@ export const auth = betterAuth({
 
   // Local email/password — toggled only via `./email-password` (not a plugin).
   ...(emailAndPasswordEnabled ? { emailAndPassword: { enabled: true } } : {}),
+
+  ...(googleCreds
+    ? {
+        socialProviders: {
+          google: {
+            clientId: googleCreds.clientId,
+            clientSecret: googleCreds.clientSecret,
+            prompt: "select_account" as const,
+          },
+        },
+      }
+    : {}),
 
   // `__Host-` prefixed cookies: the browser REFUSES any same-named cookie that
   // carries a `Domain` attribute, so a sibling `*.grok.me` app cannot "toss" a

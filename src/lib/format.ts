@@ -1,6 +1,6 @@
 import { format, parseISO } from "date-fns";
 import { vi } from "date-fns/locale";
-import type { Role, LogStatus, AlertStatus, UserStatus } from "./types";
+import type { AbnormalResult, HandoverStatus, Role, LogStatus, AlertStatus, UserStatus } from "./types";
 
 export function fmtNum(n: number | null | undefined, digits = 0) {
   if (n == null || Number.isNaN(n)) return "–";
@@ -58,6 +58,18 @@ export const USER_STATUS_LABEL: Record<UserStatus, string> = {
 };
 
 export const SHIFT_LABEL = { SANG: "Ca sáng", CHIEU: "Ca chiều" } as const;
+
+export const ABNORMAL_RESULT_LABEL: Record<AbnormalResult, string> = {
+  DA_KHAC_PHUC: "Đã khắc phục",
+  DANG_THEO_DOI: "Đang theo dõi",
+  CHUA_XU_LY: "Chưa xử lý — cần bàn giao",
+};
+
+export const HANDOVER_STATUS_LABEL: Record<HandoverStatus, string> = {
+  BINH_THUONG: "Bình thường",
+  CAN_THEO_DOI: "Cần theo dõi",
+  CO_VAN_DE: "Có vấn đề",
+};
 
 export const GROUP_LABEL = {
   LUU_LUONG: "Lưu lượng",

@@ -3,6 +3,7 @@ import { fmtNum } from "@/lib/format";
 
 const CX = 100;
 const CY = 100;
+const FACE = 108;
 
 function deg(hour12: number) {
   return (hour12 / 12) * 2 * Math.PI - Math.PI / 2;
@@ -34,7 +35,7 @@ function rim(fromH: number, toH: number, r: number) {
 function NoteLines({ text }: { text?: string }) {
   if (!text) return null;
   return (
-    <div className="kpi-prev">
+    <div className="kpi-prev opacity-65">
       {text.split(" - ").map((line) => (
         <div key={line}>{line}</div>
       ))}
@@ -68,8 +69,16 @@ export function DayNightClock({
   const secPt = pt(s / 5, 72);
 
   return (
-    <div className="dn-clock">
-      <svg viewBox="0 0 200 200" className="dn-clock-svg" aria-hidden>
+    <div className="dn-clock mt-0 flex flex-row items-center gap-3 self-center">
+      <svg
+        viewBox="0 0 200 200"
+        width={FACE}
+        height={FACE}
+        className="dn-clock-svg shrink-0"
+        style={{ width: FACE, height: FACE, maxWidth: FACE, maxHeight: FACE }}
+        preserveAspectRatio="xMidYMid meet"
+        aria-hidden
+      >
         <defs>
           <radialGradient id={faceId} cx="50%" cy="38%" r="65%">
             <stop offset="0%" stopColor="var(--color-surface2)" />
@@ -110,7 +119,7 @@ export function DayNightClock({
         <line x1={CX} y1={CY} x2={secPt.x} y2={secPt.y} className="dn-hand-s" />
         <circle cx={CX} cy={CY} r="3.5" className="dn-cap" />
       </svg>
-      <div className="dn-clock-legend">
+      <div className="dn-clock-legend w-auto min-w-[7.5rem] grid-cols-1">
         <div>
           <div className="dn-clock-leg-label">
             <span className="dn-clock-swatch dn-clock-swatch-day" />

@@ -1,6 +1,6 @@
 import { toast } from "sonner";
 import { useAppStore } from "@/lib/store";
-import type { AppUserRecord, ChemQty, ChemReceipt, ChemRestockStatus, ChemTx } from "@/lib/types";
+import type { AppUserRecord, ChemQty, ChemReceipt, ChemRestockStatus, ChemTx, EvidencePhoto, Incident } from "@/lib/types";
 import type { SheetSyncInfo } from "./types";
 import {
   getOpsStateFn,
@@ -11,6 +11,7 @@ import {
   saveChemImportFn,
   saveChemRestockFn,
   saveChemTxFn,
+  saveIncidentFn,
   saveStaffFn,
 } from "./fns";
 
@@ -165,5 +166,47 @@ export async function persistStaff(user: AppUserRecord) {
   } catch (err) {
     toast.error(errMsg(err, "Máy chủ từ chối lưu nhân sự."));
     throw err;
+  }
+}
+
+export async function persistIncident(
+  inc: Omit<Incident, "Incident_ID" | "Anh">,
+  photos: Array<{ name: string; dataUrl?: string; driveUrl?: string }>,
+) {
+  const rec = useAppStore.getState().addIncident({ ...inc, Anh: [] });
+  try {
+    const r = await saveIncidentFn({
+      data: {
+        incident: {
+          Incident_ID: rec.Incident_ID,
+          Equipment_ID: rec.Equipment_ID,
+          Ngay_phat_sinh: rec.Ngay_phat_sinh,
+          Mo_ta_su_co: rec.Mo_ta_su_co,
+          Bien_phap_xu_ly: rec.Bien_phap_xu_ly,
+          Trang_thai: rec.Trang_thai,
+          Nguoi_khac_phuc: rec.Nguoi_khac_phuc,
+          Ngay_hoan_thanh: rec.Ngay_hoan_thanh,
+        },
+        photos,
+      },
+    });
+    const anh: EvidencePhoto[] = r.photos ?? [];
+    useAppStore.setState({
+      incidents: useAppStore.getState().incidents.map((i) => (i.Incident_ID === rec.Incident_ID ? { ...i, Anh: anh } : i)),
+    });
+    if (!r.driveOk) {
+      toast.error(r.driveError || "Chưa lưu được ảnh lên Drive. Chia sẻ thư mục ảnh cho tài khoản máy chủ.");
+    } else if (anh.length) {
+      toast.success(`Đã ghi sự cố · ${anh.length} ảnh trên Drive.`);
+    } else {
+      toast.success("Đã ghi sự cố.");
+    }
+    if (!r.sheetOk && r.sheetError) {
+      toast.message("Sự cố đã lưu trên máy — chưa ghi được tab EQP_INCIDENTS.");
+    }
+    return { ok: true as const };
+  } catch (err) {
+    toast.success("Đã ghi sự cố trên máy.");
+    return { ok: true as const, warning: errMsg(err, "Chưa đẩy được Drive.") };
   }
 }

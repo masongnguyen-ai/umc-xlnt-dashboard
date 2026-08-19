@@ -146,6 +146,29 @@ export async function signIn(
   if (data?.url) window.location.href = data.url;
 }
 
+/** Đăng nhập Google: preview Grok dùng broker; máy trực / local dùng OAuth trực tiếp. */
+export async function signInGoogle(opts: { callbackURL?: string } = {}): Promise<void> {
+  const callbackURL = opts.callbackURL ?? "/app/theodoi";
+  if (inLivePreview()) {
+    await signIn("grok-google", { callbackURL, errorCallbackURL: "/login" });
+    return;
+  }
+  try {
+    await authClient.signOut();
+  } catch {
+    /* no session */
+  }
+  setBearerToken(null);
+  const { data, error } = await authClient.signIn.social({
+    provider: "google",
+    callbackURL,
+    errorCallbackURL: "/login?error=google",
+  });
+  if (error) throw new Error(error.message ?? "Không đăng nhập Google được.");
+  if (data?.url) window.location.href = data.url;
+  else throw new Error("Không nhận được URL Google. Kiểm tra GOOGLE_CLIENT_ID / GOOGLE_CLIENT_SECRET.");
+}
+
 /**
  * Open `/auth/popup` in a new window. Must run synchronously inside the click
  * handler (no await before this). The path is served by the template Vite

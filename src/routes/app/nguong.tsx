@@ -31,12 +31,12 @@ function Nguong() {
       {GROUPS.map((g) => (
         <section key={g}>
           <div className="mb-3 flex items-center gap-2">
-            <h2 className="text-sm font-semibold">{GROUP_LABEL[g]}</h2>
+            <h2 className="text-xs font-semibold uppercase tracking-[0.14em] text-muted">{GROUP_LABEL[g]}</h2>
             <Badge variant={g === "PHAP_LY" ? "legal" : g === "CHAT_LUONG" ? "warn" : "accent"}>
               {thresholds.filter((t) => t.Nhom === g).length} ngưỡng
             </Badge>
           </div>
-          <div className="overflow-x-auto rounded-xl border border-border">
+          <div className="overflow-x-auto rounded-lg border border-border shadow-panel">
             <table className="w-full min-w-[680px] text-sm">
               <thead className="bg-surface2 text-[11px] uppercase tracking-wide text-muted">
                 <tr>
@@ -51,7 +51,7 @@ function Nguong() {
                 {thresholds
                   .filter((t) => t.Nhom === g)
                   .map((t) => (
-                    <tr key={t.Threshold_ID} className="border-t border-border">
+                    <tr key={t.Threshold_ID} className="border-t border-border hover:bg-surface2">
                       <td className="px-3 py-2 font-mono text-xs">{t.Ma_nguong}</td>
                       <td className="px-3 py-2">
                         <div>{t.Ten_nguong}</div>

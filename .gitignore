@@ -13,3 +13,4 @@ screenshots
 .tsc-out.txt
 .DS_Store
 .vercel
+data/

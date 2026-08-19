@@ -120,3 +120,79 @@ export const migrateLocalChemFn = createServerFn({ method: "POST" })
     const { importLocalSnapshot } = await import("./chem.server");
     return importLocalSnapshot(context.userId, data);
   });
+
+export const saveIncidentFn = createServerFn({ method: "POST" })
+  .middleware([authMiddleware])
+  .validator(
+    (input: {
+      incident: {
+        Incident_ID: string;
+        Equipment_ID: string;
+        Ngay_phat_sinh: string;
+        Mo_ta_su_co: string;
+        Bien_phap_xu_ly: string;
+        Trang_thai: string;
+        Nguoi_khac_phuc: string;
+        Ngay_hoan_thanh: string;
+      };
+      photos: Array<{ name: string; dataUrl?: string; driveUrl?: string }>;
+    }) => input,
+  )
+  .handler(async ({ context, data }) => {
+    const { requireAction } = await import("./staff.server");
+    const { uid } = await import("@/lib/utils");
+    const staff = await requireAction(context.userId, "write_thietbi");
+    const { uploadEvidencePhoto, appendIncidentRow } = await import("@/lib/google-drive");
+    const { parseDriveFileId, driveViewUrl } = await import("@/lib/drive-tree");
+    const photos: Array<{
+      id: string;
+      name: string;
+      url: string;
+      driveId?: string;
+      bytes: number;
+      local?: boolean;
+    }> = [];
+    let driveOk = true;
+    let driveError = "";
+    for (const p of data.photos.slice(0, 8)) {
+      try {
+        const existingId = p.driveUrl ? parseDriveFileId(p.driveUrl) : null;
+        if (existingId) {
+          photos.push({
+            id: uid("PIC"),
+            name: p.name || "drive",
+            url: driveViewUrl(existingId),
+            driveId: existingId,
+            bytes: 0,
+          });
+          continue;
+        }
+        if (!p.dataUrl) throw new Error("Thiếu ảnh hoặc link Drive.");
+        photos.push(await uploadEvidencePhoto({ name: p.name, dataUrl: p.dataUrl, kind: "su_co" }));
+      } catch (err) {
+        driveOk = false;
+        driveError = err instanceof Error ? err.message : String(err);
+      }
+    }
+    const links = photos.filter((p) => p.driveId).map((p) => p.url).join("\n");
+    let sheetOk = false;
+    let sheetError = "";
+    try {
+      await appendIncidentRow({
+        ...data.incident,
+        Hinh_anh_links: links,
+        Nguoi_tao: staff.Email,
+      });
+      sheetOk = true;
+    } catch (err) {
+      sheetError = err instanceof Error ? err.message : String(err);
+    }
+    return {
+      ok: true as const,
+      photos: photos.filter((p) => p.driveId),
+      driveOk,
+      driveError,
+      sheetOk,
+      sheetError,
+    };
+  });

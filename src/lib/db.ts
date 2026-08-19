@@ -109,13 +109,14 @@ async function createPgliteSql(): Promise<Sql> {
   // data survives source edits (it resets on dev-server restart).
   globalRef.__pgliteInstance__ ??= (async () => {
     const { PGlite } = await import("@electric-sql/pglite");
-    const pg = new PGlite({
-      parsers: {
-        [OID_INT8]: Number,
-        [OID_DATE]: identity,
-        [OID_INTERVAL]: identity,
-      },
-    });
+    const parsers = {
+      [OID_INT8]: Number,
+      [OID_DATE]: identity,
+      [OID_INTERVAL]: identity,
+    };
+    // In-memory: Google Drive / Windows file lock làm hỏng dataDir và hạ Vite
+    // (ERR_CONNECTION_REFUSED khi Google redirect về).
+    const pg = new PGlite({ parsers });
     await pg.waitReady;
     await pg.exec(
       "create table if not exists _migrations (name text primary key, applied_at timestamptz not null default now())",

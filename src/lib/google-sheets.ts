@@ -128,8 +128,16 @@ function getAuth() {
       client_email: email,
       private_key: key,
     },
-    scopes: ["https://www.googleapis.com/auth/spreadsheets"],
+    scopes: [
+      "https://www.googleapis.com/auth/spreadsheets",
+      "https://www.googleapis.com/auth/drive",
+    ],
   });
+}
+
+/** Auth Service Account — Sheets + Drive (ảnh chứng minh). */
+export function getGoogleAuth() {
+  return getAuth();
 }
 
 function getSheets(): sheets_v4.Sheets {

@@ -6,6 +6,25 @@ export type AlertStatus = "MOI" | "DA_XEM" | "DANG_XU_LY" | "DA_XU_LY" | "BO_QUA
 export type ThresholdGroup = "LUU_LUONG" | "CHAT_LUONG" | "PHAP_LY";
 export type ChemKind = "NHAP" | "XUAT";
 export type EqStatus = "HOAT_DONG" | "BAO_TRI" | "HONG" | "NGUNG";
+export type AbnormalResult = "DA_KHAC_PHUC" | "DANG_THEO_DOI" | "CHUA_XU_LY";
+export type HandoverStatus = "BINH_THUONG" | "CAN_THEO_DOI" | "CO_VAN_DE";
+
+export type LogPhoto = {
+  id: string;
+  name: string;
+  dataUrl: string;
+};
+
+export type LogAbnormal = {
+  id: string;
+  gio_phat_hien: string;
+  hien_tuong: string;
+  nguyen_nhan: string;
+  da_xu_ly: string;
+  nguoi_xu_ly: string;
+  ket_qua: AbnormalResult;
+  anh: LogPhoto[];
+};
 
 export type AppUserRecord = {
   User_ID: string;
@@ -49,6 +68,10 @@ export type OpLog = {
   Tinh_trang_he_thong: string;
   Su_co_phat_sinh: string;
   Bien_phap_khac_phuc: string;
+  Co_bat_thuong: boolean;
+  Bat_thuong: LogAbnormal[];
+  Ban_giao_tinh_trang: HandoverStatus;
+  Ban_giao_theo_doi: string;
   Trang_thai: LogStatus;
   Nguoi_tao: string;
   Nguoi_sua: string;
@@ -149,6 +172,15 @@ export type Equipment = {
   Ghi_chu: string;
 };
 
+export type EvidencePhoto = {
+  id: string;
+  name: string;
+  url: string;
+  driveId?: string;
+  bytes: number;
+  local?: boolean;
+};
+
 export type Incident = {
   Incident_ID: string;
   Equipment_ID: string;
@@ -158,6 +190,10 @@ export type Incident = {
   Trang_thai: string;
   Nguoi_khac_phuc: string;
   Ngay_hoan_thanh: string;
+  Anh?: EvidencePhoto[];
+  Loai?: "THIET_BI" | "BAT_THUONG";
+  Doi_tuong?: string;
+  He_lien_quan?: "He_600" | "He_220" | "CHUNG";
 };
 
 export type Maintenance = {
@@ -213,6 +249,8 @@ export type Report = {
     so_su_co: number;
     so_giao_dich_hc: number;
     so_canh_bao: number;
+    so_bat_thuong: number;
+    so_chua_xu_ly: number;
   };
   Nguoi_tao: string;
   Ngay_tao: string;

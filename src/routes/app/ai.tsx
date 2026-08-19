@@ -16,10 +16,8 @@ function AiPage() {
   return (
     <div className="mx-auto grid max-w-4xl gap-8 lg:grid-cols-[1.1fr_0.9fr]">
       <div>
-        <p className="inline-block rounded-full border border-border bg-surface2 px-2.5 py-0.5 text-[11px] font-medium uppercase tracking-wide text-muted">
-          Hồ sơ nguồn
-        </p>
-        <h2 className="mt-4 text-2xl font-medium tracking-tight">Trợ lý hồ sơ vận hành</h2>
+        <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-accent">Hồ sơ nguồn</p>
+        <h2 className="mt-3 text-2xl font-semibold tracking-tight">Trợ lý hồ sơ vận hành</h2>
         <p className="mt-3 text-sm leading-relaxed text-muted">
           Không sinh câu trả lời tự do. Chỉ nêu số đã chốt trong {CSDL.name} ({CSDL.version}, {CSDL.dated}).
         </p>
@@ -32,14 +30,42 @@ function AiPage() {
           ))}
         </ul>
       </div>
-      <aside className="overflow-hidden rounded-xl border border-border bg-surface">
-        <img src="/lab-still.jpg" alt="" className="aspect-[4/3] w-full object-cover" />
-        <div className="p-4">
-          <p className="text-xs uppercase tracking-wide text-dim">Nguồn đang dùng</p>
-          <p className="mt-1 text-sm text-muted">
-            {CSDL.name} · {CSDL.version} · {CSDL.equipments} thiết bị · {CSDL.thresholds} ngưỡng
-          </p>
-        </div>
+      <aside className="relative overflow-hidden rounded-lg border border-border bg-surface p-5 pl-6 shadow-panel">
+        <span className="absolute inset-y-0 left-0 w-[3px] bg-accent" />
+        <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-accent">Hồ sơ trạm</p>
+        <h3 className="mt-2 text-xl font-semibold tracking-tight">Trạm XLNT UMC</h3>
+        <p className="mt-1 text-sm text-muted">Bệnh viện Đại học Y Dược TP.HCM</p>
+        <dl className="mt-6 grid grid-cols-2 gap-4">
+          <div>
+            <dt className="kpi-label tracking-[0.14em]">Công suất</dt>
+            <dd className="kpi-value mt-1">
+              {CSDL.capacity}
+              <span className="kpi-unit">m³/ngày</span>
+            </dd>
+          </div>
+          <div>
+            <dt className="kpi-label tracking-[0.14em]">Quy chuẩn</dt>
+            <dd className="mt-1 text-sm font-semibold tracking-tight">{CSDL.qcvn}</dd>
+          </div>
+          <div>
+            <dt className="kpi-label tracking-[0.14em]">Thiết bị</dt>
+            <dd className="kpi-value mt-1">
+              {CSDL.equipments}
+              <span className="kpi-unit">hạng mục</span>
+            </dd>
+          </div>
+          <div>
+            <dt className="kpi-label tracking-[0.14em]">Ngưỡng</dt>
+            <dd className="kpi-value mt-1">
+              {CSDL.thresholds}
+              <span className="kpi-unit">quy tắc</span>
+            </dd>
+          </div>
+        </dl>
+        <p className="mt-6 text-xs text-dim">
+          {CSDL.name} · {CSDL.version} · {CSDL.dated}
+          <span className="mt-1 block">Nhà thầu {CSDL.contractor} · hai hệ 600 + 220</span>
+        </p>
       </aside>
     </div>
   );

@@ -33,14 +33,21 @@ export function LiveSyncBar() {
   const remain = live.nextAt ? live.nextAt - now : 0;
 
   return (
-    <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-dim">
-      <span className="inline-flex items-center gap-1.5 font-medium text-ok">
-        <span className={cn("size-1.5 rounded-full bg-ok", live.running && "animate-pulse")} />
+    <div className="flex flex-wrap items-center gap-x-4 gap-y-1 font-mono text-[11px] tabular-nums text-dim">
+      <span className="inline-flex items-center gap-1.5 font-sans font-medium text-ok">
+        <span
+          className={cn(
+            "size-1.5 rounded-full bg-ok",
+            live.running && "animate-pulse ring-2 ring-ok/40",
+          )}
+        />
         Tự cập nhật mỗi 10 phút
       </span>
       <span>Vừa nạp {fmtClock(live.lastCheck)}</span>
-      <span>Lần sau {live.running ? "đang lấy…" : fmtRemain(remain)}</span>
-      {live.error ? <span className="text-bad">{live.error}</span> : null}
+      <span className={cn(live.running && "text-accent")}>
+        Lần sau {live.running ? "đang lấy…" : fmtRemain(remain)}
+      </span>
+      {live.error ? <span className="font-sans text-bad">{live.error}</span> : null}
     </div>
   );
 }

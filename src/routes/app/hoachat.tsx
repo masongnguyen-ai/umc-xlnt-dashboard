@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import { toast } from "sonner";
-import { ChevronLeft, ChevronRight } from "lucide-react";
+import { ChevronLeft, ChevronRight, TriangleAlert } from "lucide-react";
 import { useAppStore } from "@/lib/store";
 import { useCurrentUser } from "@/lib/auth/use-current-user";
 import { can } from "@/lib/permissions";
@@ -101,7 +101,7 @@ function HoaChat() {
         </TabsList>
 
         <TabsContent value="tra-cuu" className="space-y-4">
-          <div className="flex flex-wrap items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2 rounded-lg border border-border bg-surface p-1.5">
             <Button
               variant="secondary"
               size="icon"
@@ -154,7 +154,7 @@ function HoaChat() {
           </div>
 
           {!inContract || !day ? (
-            <p className="rounded-xl border border-border bg-surface p-4 text-sm text-muted">
+            <p className="rounded-lg border border-border bg-surface p-4 text-sm text-muted">
               Ngoài hợp đồng 27/06/2026–26/12/2027. Chọn ngày trong khoảng để xem liều.
             </p>
           ) : (
@@ -175,11 +175,11 @@ function HoaChat() {
               <ChemDoseDesk day={day} today={today} role={role} email={email} />
 
               <div className="grid gap-2 text-sm sm:grid-cols-2">
-                <div className="rounded-xl border border-border bg-surface p-3">
+                <div className="rounded-lg border border-border bg-surface p-3">
                   <div className="text-xs uppercase tracking-wide text-dim">Nhập kho kế tiếp</div>
                   <div className="mt-1 font-medium">{nhap ? nhap.nhap : "Hết lịch"}</div>
                 </div>
-                <div className="rounded-xl border border-border bg-surface p-3">
+                <div className="rounded-lg border border-border bg-surface p-3">
                   <div className="text-xs uppercase tracking-wide text-dim">Bảo trì kế tiếp</div>
                   <div className="mt-1 font-medium">{baotri ? baotri.baotri : "Hết lịch"}</div>
                 </div>
@@ -189,7 +189,7 @@ function HoaChat() {
         </TabsContent>
 
         <TabsContent value="thang">
-          <div className="overflow-x-auto rounded-xl border border-border">
+          <div className="overflow-x-auto rounded-lg border border-border">
             <table className="w-full min-w-[720px] text-sm">
               <thead className="bg-surface2 text-xs uppercase tracking-wide text-muted">
                 <tr>
@@ -206,7 +206,7 @@ function HoaChat() {
                   return (
                     <tr
                       key={m.stt}
-                      className={cn("cursor-pointer border-t border-border", on && "bg-accent/10")}
+                      className={cn("cursor-pointer border-t border-border hover:bg-surface2", on && "bg-accent/10")}
                       onClick={() => setLookup(m.from <= today && today <= m.to ? today : m.from)}
                     >
                       <td className="px-3 py-2 font-medium">{m.stt}</td>
@@ -239,7 +239,7 @@ function HoaChat() {
             </p>
           ) : null}
 
-          <div className="mt-4 overflow-x-auto rounded-xl border border-border">
+          <div className="mt-4 overflow-x-auto rounded-lg border border-border">
             <table className="w-full min-w-[640px] text-sm">
               <thead className="bg-surface2 text-xs uppercase tracking-wide text-muted">
                 <tr>
@@ -285,7 +285,7 @@ function HoaChat() {
         </TabsContent>
 
         <TabsContent value="lich">
-          <div className="overflow-x-auto rounded-xl border border-border">
+          <div className="overflow-x-auto rounded-lg border border-border">
             <table className="w-full min-w-[720px] text-sm">
               <thead className="bg-surface2 text-xs uppercase tracking-wide text-muted">
                 <tr>
@@ -300,7 +300,7 @@ function HoaChat() {
                 {CHEM_PLAN.schedule.map((s) => {
                   const on = month && s.stt === month.stt;
                   return (
-                    <tr key={s.stt} className={cn("border-t border-border", on && "bg-accent/10")}>
+                    <tr key={s.stt} className={cn("border-t border-border hover:bg-surface2", on && "bg-accent/10")}>
                       <td className="px-3 py-2 font-medium">{s.thang}</td>
                       <td className="px-3 py-2">{s.nhap}</td>
                       <td className="px-3 py-2">{s.baotri}</td>
@@ -324,7 +324,11 @@ function HoaChat() {
               const low = c.Nguong_canh_bao_ton != null && ton <= c.Nguong_canh_bao_ton;
               const empty = ton === 0;
               return (
-                <article key={c.Ma_hoa_chat} className="rounded-xl border border-border bg-surface p-4">
+                <article
+                  key={c.Ma_hoa_chat}
+                  className="relative overflow-hidden rounded-lg border border-border bg-surface p-4 pl-5 shadow-panel"
+                >
+                  <span className={cn("absolute inset-y-0 left-0 w-[3px]", empty || low ? "bg-bad" : "bg-accent")} />
                   <div className="flex items-start justify-between gap-2">
                     <div>
                       <div className="text-xs font-mono text-dim">{c.Ma_hoa_chat}</div>
@@ -333,12 +337,15 @@ function HoaChat() {
                     {empty ? (
                       <Badge variant="default">Chưa nhập kho</Badge>
                     ) : low ? (
-                      <Badge variant="warn">Sắp hết</Badge>
+                      <Badge variant="warn" className="gap-1">
+                        <TriangleAlert className="size-3" strokeWidth={2} />
+                        Sắp hết
+                      </Badge>
                     ) : (
                       <Badge variant="ok">Đủ</Badge>
                     )}
                   </div>
-                  <div className="mt-3 font-mono text-3xl font-medium tabular-nums tracking-tight">
+                  <div className={cn("mt-3 font-mono text-3xl font-medium tabular-nums tracking-tight", (empty || low) && "text-bad")}>
                     {fmtNum(ton, c.Don_vi_tinh === "gallon" ? 1 : 0)}
                     <span className="ml-1 text-sm font-normal text-muted">{c.Don_vi_tinh}</span>
                   </div>
@@ -360,7 +367,7 @@ function HoaChat() {
 
           <section>
             <h2 className="mb-3 text-sm font-semibold">Giao dịch gần đây</h2>
-            <div className="overflow-x-auto rounded-xl border border-border">
+            <div className="overflow-x-auto rounded-lg border border-border">
               <table className="w-full min-w-[640px] text-sm">
                 <thead className="bg-surface2 text-[11px] uppercase tracking-wide text-muted">
                   <tr>
@@ -373,7 +380,7 @@ function HoaChat() {
                 </thead>
                 <tbody>
                   {transactions.map((t) => (
-                    <tr key={t.Tx_ID} className="border-t border-border">
+                    <tr key={t.Tx_ID} className="border-t border-border hover:bg-surface2">
                       <td className="px-3 py-2">{fmtDate(t.Ngay_thuc_hien)}</td>
                       <td className="px-3 py-2 font-mono">{t.Ma_hoa_chat}</td>
                       <td className="px-3 py-2">

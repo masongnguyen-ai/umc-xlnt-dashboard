@@ -220,17 +220,26 @@ function TheoDoi() {
     <div className="mx-auto max-w-6xl space-y-4">
       <div
         className={cn(
-          "overflow-hidden rounded-xl border",
-          lastTone === "ok" && "border-ok/40 bg-ok/10",
-          lastTone === "warn" && "border-warn/40 bg-warn/10",
-          lastTone === "bad" && "border-bad/40 bg-bad/10",
+          "relative overflow-hidden rounded-lg border border-border bg-surface shadow-panel",
+          lastTone === "ok" && "bg-ok/10",
+          lastTone === "warn" && "bg-warn/10",
+          lastTone === "bad" && "bg-bad/10",
         )}
       >
-        <div className="grid grid-cols-3 divide-x divide-border/70">
-          <div className="flex items-start gap-2 px-3 py-2.5">
+        <span
+          className={cn(
+            "absolute inset-y-0 left-0 w-[3px]",
+            lastTone === "ok" && "bg-ok",
+            lastTone === "warn" && "bg-warn",
+            lastTone === "bad" && "bg-bad",
+            lastTone === "neutral" && "bg-accent",
+          )}
+        />
+        <div className="grid grid-cols-3 divide-x divide-border/70 pl-1">
+          <div className="flex items-start gap-2 px-3 py-3">
             <span
               className={cn(
-                "mt-1 size-2 shrink-0 rounded-full",
+                "mt-1.5 size-2 shrink-0 rounded-full",
                 lastTone === "ok" && "bg-ok",
                 lastTone === "warn" && "bg-warn",
                 lastTone === "bad" && "bg-bad",
@@ -238,28 +247,35 @@ function TheoDoi() {
               )}
             />
             <div className="min-w-0">
-              <div className="text-[10px] uppercase tracking-wide text-muted">Ngày gần nhất</div>
-              <div className="text-[13px] font-semibold tabular-nums leading-tight">
+              <div className="text-[10px] font-semibold uppercase tracking-[0.14em] text-muted">Ngày gần nhất</div>
+              <div className="text-[13px] font-semibold tabular-nums leading-tight tracking-tight">
                 {last?.ngay}
               </div>
               <div className="text-[11px] text-muted">{last?.thu}</div>
             </div>
           </div>
-          <div className="min-w-0 px-2 py-2.5 text-center sm:px-3">
-            <div className="banner-title">Nước thải</div>
-            <div className="banner-value mt-1">
+          <div className="min-w-0 px-2 py-3 text-center sm:px-3">
+            <div className="banner-title tracking-[0.16em]">Nước thải</div>
+            <div
+              className={cn(
+                "banner-value mt-1.5 text-[1.65rem] sm:text-[2rem]",
+                lastTone === "ok" && "text-ok",
+                lastTone === "warn" && "text-warn",
+                lastTone === "bad" && "text-bad",
+              )}
+            >
               {fmtNum(last?.llnt)} <span className="kpi-unit">m³</span>
             </div>
-            <div className="kpi-prev mt-1">
+            <div className="kpi-prev mt-2 rounded-md bg-bg/80 px-2 py-1.5 text-left opacity-65">
               Hệ 600: {fmtNum(last?.ll600)} m³ - Hệ 220: {fmtNum(last?.ll220)} m³
             </div>
           </div>
-          <div className="min-w-0 px-2 py-2.5 text-center sm:px-3">
-            <div className="banner-title">Nước cấp</div>
-            <div className="banner-value mt-1">
+          <div className="min-w-0 px-2 py-3 text-center sm:px-3">
+            <div className="banner-title tracking-[0.16em]">Nước cấp</div>
+            <div className="banner-value mt-1.5 text-[1.65rem] sm:text-[2rem]">
               {fmtNum(last?.llcap)} <span className="kpi-unit">m³</span>
             </div>
-            <div className="kpi-prev mt-1">
+            <div className="kpi-prev mt-2 rounded-md bg-bg/80 px-2 py-1.5 text-left opacity-65">
               Khu A: {fmtNum(last?.llcapA)} m³ - Khu B: {fmtNum(last?.llcapB)} m³
             </div>
           </div>
@@ -276,25 +292,42 @@ function TheoDoi() {
         </div>
       </div>
 
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <div className="flex flex-wrap gap-2">
-          {chips.map((c) => (
-            <Button key={c.id} size="sm" variant={range === c.id ? "default" : "secondary"} onClick={() => setRange(c.id)}>
-              {c.label}
+      <div className="overflow-hidden rounded-lg border border-border bg-surface">
+        <div className="flex flex-wrap items-center gap-2 p-1.5">
+          <div className="flex min-w-0 flex-1 flex-wrap gap-1">
+            {chips.map((c) => (
+              <Button key={c.id} size="sm" variant={range === c.id ? "default" : "secondary"} onClick={() => setRange(c.id)}>
+                {c.label}
+              </Button>
+            ))}
+          </div>
+          <div className="flex flex-wrap items-center gap-1.5">
+            <a href={FLOW_SHEET_HTML} target="_blank" rel="noreferrer" className="hidden text-xs text-muted underline-offset-2 hover:text-fg hover:underline sm:inline">
+              Mở sheet gốc
+            </a>
+            <KeepAwake />
+            <Button
+              size="sm"
+              variant="secondary"
+              aria-busy={busy}
+              onClick={() => void refreshSheet()}
+              disabled={busy}
+            >
+              {busy ? (
+                <>
+                  <span className="size-3.5 animate-spin rounded-full border-2 border-current border-t-transparent" />
+                  Đang lấy…
+                </>
+              ) : (
+                "Làm mới"
+              )}
             </Button>
-          ))}
+          </div>
         </div>
-        <div className="flex flex-wrap items-center gap-1.5">
-          <a href={FLOW_SHEET_HTML} target="_blank" rel="noreferrer" className="hidden text-xs text-muted underline-offset-2 hover:text-fg hover:underline sm:inline">
-            Mở sheet gốc
-          </a>
-          <KeepAwake />
-          <Button size="sm" variant="secondary" onClick={() => void refreshSheet()} disabled={busy}>
-            {busy ? "Đang lấy…" : "Lấy số liệu mới"}
-          </Button>
+        <div className="border-t border-border px-3 py-1.5">
+          <LiveSyncBar />
         </div>
       </div>
-      <LiveSyncBar />
 
       <section className="space-y-2">
         <h2 className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.12em] text-muted">
@@ -453,7 +486,7 @@ function TheoDoi() {
       </div>
 
       {tab === "trend" ? (
-        <section className="rounded-xl border border-border bg-surface p-4">
+        <section className="rounded-lg border border-border bg-surface p-4 shadow-panel">
           <h2 className="mb-3 text-sm font-semibold">Xu hướng 30 ngày</h2>
           <div className="h-56">
             <ResponsiveContainer width="100%" height="100%">
@@ -462,9 +495,9 @@ function TheoDoi() {
                 <XAxis dataKey="ngay" tick={axis} interval={4} />
                 <YAxis tick={axis} domain={[0, "auto"]} />
                 <Tooltip content={<ChartTip />} />
-                <Area type="monotone" dataKey="llnt" name="Nước thải" stroke="#3ba89a" fill="#3ba89a" fillOpacity={0.12} />
-                <Area type="monotone" dataKey="llcap" name="Nước cấp" stroke="#7eb0d0" fill="transparent" />
-                <Line type="monotone" dataKey="nguongNt" name={`Ngưỡng ${ntMax}`} stroke="#e07a7a" strokeDasharray="4 4" dot={false} />
+                <Area type="monotone" dataKey="llnt" name="Nước thải" stroke="#22e3c6" fill="#22e3c6" fillOpacity={0.12} />
+                <Area type="monotone" dataKey="llcap" name="Nước cấp" stroke="#5ec4e8" fill="transparent" />
+                <Line type="monotone" dataKey="nguongNt" name={`Ngưỡng ${ntMax}`} stroke="#f06a6a" strokeDasharray="4 4" dot={false} />
               </AreaChart>
             </ResponsiveContainer>
           </div>
@@ -472,7 +505,7 @@ function TheoDoi() {
       ) : null}
 
       {tab === "balance" ? (
-        <section className="rounded-xl border border-border bg-surface p-4">
+        <section className="rounded-lg border border-border bg-surface p-4 shadow-panel">
           <h2 className="mb-3 text-sm font-semibold">Hệ 600 và hệ 220</h2>
           <div className="h-56">
             <ResponsiveContainer width="100%" height="100%">
@@ -481,8 +514,8 @@ function TheoDoi() {
                 <XAxis dataKey="ngay" tick={axis} interval={5} />
                 <YAxis tick={axis} domain={[0, "auto"]} />
                 <Tooltip content={<ChartTip />} />
-                <Line type="monotone" dataKey="ll600" name="Hệ 600" stroke="#6ecf9a" dot={false} strokeWidth={2} />
-                <Line type="monotone" dataKey="ll220" name="Hệ 220" stroke="#e0b44a" dot={false} strokeWidth={2} />
+                <Line type="monotone" dataKey="ll600" name="Hệ 600" stroke="#3ee09a" dot={false} strokeWidth={2} />
+                <Line type="monotone" dataKey="ll220" name="Hệ 220" stroke="#f0c14a" dot={false} strokeWidth={2} />
               </LineChart>
             </ResponsiveContainer>
           </div>
@@ -490,7 +523,7 @@ function TheoDoi() {
       ) : null}
 
       {tab === "daynight" ? (
-        <section className="rounded-xl border border-border bg-surface p-4">
+        <section className="rounded-lg border border-border bg-surface p-4 shadow-panel">
           <h2 className="mb-3 text-sm font-semibold">Ban ngày và ban đêm</h2>
           <div className="h-56">
             <ResponsiveContainer width="100%" height="100%">
@@ -499,24 +532,24 @@ function TheoDoi() {
                 <XAxis dataKey="thu" tick={axis} />
                 <YAxis tick={axis} domain={[0, "auto"]} />
                 <Tooltip content={<ChartTip />} />
-                <Bar dataKey="ntday" name="Ban ngày" stackId="a" fill="#e0b44a" />
-                <Bar dataKey="lldem" name="Ban đêm" stackId="a" fill="#7c8894" />
+                <Bar dataKey="ntday" name="Ban ngày" stackId="a" fill="#f0c14a" />
+                <Bar dataKey="lldem" name="Ban đêm" stackId="a" fill="#6b7884" />
               </BarChart>
             </ResponsiveContainer>
           </div>
         </section>
       ) : null}
 
-      <section className="rounded-xl border border-border bg-surface p-4">
+      <section className="rounded-lg border border-border bg-surface p-4 shadow-panel">
         <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
           <h2 className="text-sm font-semibold">
             Bảng cảnh báo và dữ liệu · {alertDays} cảnh báo
           </h2>
-          <span className="text-xs text-muted">
+          <span className="text-xs tabular-nums text-muted">
             Max {fmtNum(maxOf(recs, "llnt"))} · Min {fmtNum(minOf(recs, "llnt"))} · TB {fmtNum(avg(recs, "llnt"))}
           </span>
         </div>
-        <div className="tbl-wrap">
+        <div className="tbl-wrap -mx-1 max-w-full overflow-x-auto overscroll-x-contain">
           <table className="data-table">
             <thead>
               <tr>

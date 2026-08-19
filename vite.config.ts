@@ -130,7 +130,9 @@ function authPopupPlugin(): Plugin {
 // AGENTS.md § "First scaffold".
 export default defineConfig(({ command }) => ({
   server: {
-    host: "0.0.0.0",
+    // `true` = mọi giao diện (IPv4 + IPv6). `0.0.0.0` alone từ chối Chrome
+    // `localhost` → ::1, gây ERR_CONNECTION_REFUSED khi Google redirect về.
+    host: true,
     port: 8080,
     strictPort: true,
   },

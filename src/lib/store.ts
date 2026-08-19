@@ -37,6 +37,7 @@ import {
 } from "./seed";
 import { FLOW_SHEET_META } from "./flow-data";
 import { annotateFlow, generateFlowDays, scanFlowAlerts, softValidateLog } from "./flow";
+import { listOpenFollowups, normalizeLog, syncLegacyIncident, validateShiftLog } from "./shift-log";
 import type { FlowDay } from "./types";
 import type { SheetSyncInfo } from "./ops/types";
 import { uid } from "./utils";
@@ -124,7 +125,8 @@ type State = {
   updateChemRestock: (id: string, status: ChemRestockStatus) => void;
   setChemThreshold: (ma: string, value: number | null) => void;
   updateEquipment: (id: string, patch: Partial<Equipment>) => void;
-  addIncident: (inc: Omit<Incident, "Incident_ID">) => void;
+  addEquipment: (eq: Equipment) => { ok: true } | { ok: false; error: string };
+  addIncident: (inc: Omit<Incident, "Incident_ID"> & { Incident_ID?: string }) => Incident;
   addMaintenance: (m: Omit<Maintenance, "Maint_ID">) => void;
   updateAlert: (id: string, status: AlertStatus, note: string, actor: string) => { ok: boolean; error?: string };
   scanAlerts: () => number;
@@ -160,6 +162,7 @@ function initial(): Omit<
   | "updateChemRestock"
   | "setChemThreshold"
   | "updateEquipment"
+  | "addEquipment"
   | "addIncident"
   | "addMaintenance"
   | "updateAlert"
@@ -252,9 +255,11 @@ export const useAppStore = create<State>()(
 
         const now = new Date().toISOString();
         const existing = get().logs.find((l) => l.Log_ID === log.Log_ID);
+        const err = validateShiftLog(log, asDraft);
+        if (err) return { ok: false as const, error: err };
         const status = asDraft ? "NHAP" : "CHO_DUYET";
         const saved: OpLog = {
-          ...log,
+          ...syncLegacyIncident(normalizeLog(log)),
           Log_ID: log.Log_ID || uid("LOG"),
           Trang_thai: existing && existing.Trang_thai !== "NHAP" && existing.Trang_thai !== "YEU_CAU_BO_SUNG" ? existing.Trang_thai : status,
           Nguoi_tao: existing?.Nguoi_tao || actor,
@@ -398,8 +403,22 @@ export const useAppStore = create<State>()(
           equipments: get().equipments.map((e) => (e.Equipment_ID === id ? { ...e, ...patch } : e)),
         }),
 
-      addIncident: (inc) =>
-        set({ incidents: [{ ...inc, Incident_ID: uid("INC") }, ...get().incidents] }),
+      addEquipment: (eq) => {
+        const id = eq.Equipment_ID.trim();
+        if (!id) return { ok: false as const, error: "Cần mã thiết bị." };
+        if (!eq.Ten_thiet_bi.trim()) return { ok: false as const, error: "Cần tên hạng mục." };
+        if (get().equipments.some((e) => e.Equipment_ID === id)) {
+          return { ok: false as const, error: `Đã có mã ${id}.` };
+        }
+        set({ equipments: [...get().equipments, eq] });
+        return { ok: true as const };
+      },
+
+      addIncident: (inc) => {
+        const rec: Incident = { ...inc, Incident_ID: inc.Incident_ID || uid("INC"), Anh: inc.Anh ?? [] };
+        set({ incidents: [rec, ...get().incidents] });
+        return rec;
+      },
 
       addMaintenance: (m) =>
         set({ maintenances: [{ ...m, Maint_ID: uid("MNT") }, ...get().maintenances] }),
@@ -462,6 +481,8 @@ export const useAppStore = create<State>()(
             so_su_co: get().incidents.filter((i) => i.Ngay_phat_sinh >= from && i.Ngay_phat_sinh <= to).length,
             so_giao_dich_hc: get().transactions.filter((t) => t.Ngay_thuc_hien >= from && t.Ngay_thuc_hien <= to).length,
             so_canh_bao: get().alerts.filter((a) => a.Ngay >= from && a.Ngay <= to).length,
+            so_bat_thuong: logs.filter((l) => normalizeLog(l).Co_bat_thuong).length,
+            so_chua_xu_ly: listOpenFollowups(logs).length,
           },
           Nguoi_tao: actor,
           Ngay_tao: new Date().toISOString(),

@@ -6,7 +6,7 @@ export function ChemSyncBar() {
   if (!sheet) return null;
   const local = sheet.mode === "local";
   return (
-    <div className="flex flex-wrap items-center gap-2 rounded-xl border border-border bg-surface px-3 py-2 text-xs">
+    <div className="flex flex-wrap items-center gap-2 rounded-lg border border-border bg-surface px-3 py-2 text-xs">
       <Badge variant={sheet.ok && !local ? "ok" : "warn"}>{local ? "Máy chủ" : "Google Sheet"}</Badge>
       <span className="text-muted">
         {local

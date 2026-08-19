@@ -61,6 +61,32 @@ const TITLES: Record<string, string> = {
   "/app/trienkhai": "Triển khai thực tế",
 };
 
+function ShellClock() {
+  const [now, setNow] = useState(() => new Date());
+  useEffect(() => {
+    const t = window.setInterval(() => setNow(new Date()), 1000);
+    return () => window.clearInterval(t);
+  }, []);
+  const time = now.toLocaleTimeString("vi-VN", {
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hour12: false,
+    timeZone: "Asia/Ho_Chi_Minh",
+  });
+  const date = now.toLocaleDateString("vi-VN", {
+    day: "2-digit",
+    month: "2-digit",
+    timeZone: "Asia/Ho_Chi_Minh",
+  });
+  return (
+    <div className="hidden font-mono text-[12px] tabular-nums tracking-tight sm:block">
+      <span className="text-fg">{time}</span>
+      <span className="ml-2 text-dim">{date}</span>
+    </div>
+  );
+}
+
 export function AppShell() {
   const { user, isPending } = useCurrentUserState();
   const [ready, setReady] = useState(false);
@@ -155,8 +181,8 @@ export function AppShell() {
   const openAlerts = alerts.filter((a) => a.Trang_thai === "MOI" || a.Trang_thai === "DA_XEM").length;
 
   const nav = (
-    <nav className="flex flex-1 flex-col gap-0.5 px-2 py-3">
-      <p className="px-3 pb-2 pt-1 text-[10px] font-semibold uppercase tracking-[0.16em] text-dim">
+    <nav className="flex flex-1 flex-col gap-px px-2 py-2">
+      <p className="px-3 pb-1.5 pt-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-dim">
         Vận hành
       </p>
       {NAV_ITEMS.map((item) => {
@@ -167,7 +193,7 @@ export function AppShell() {
           return (
             <div
               key={item.to}
-              className="flex items-center gap-3 rounded-md px-3 py-2.5 text-sm text-dim/50"
+              className="flex items-center gap-2.5 rounded-sm px-3 py-1.5 text-[13px] text-dim/50"
               title="Không có quyền"
             >
               <Icon className="size-4 shrink-0" strokeWidth={1.75} />
@@ -181,14 +207,16 @@ export function AppShell() {
             to={item.to}
             onClick={() => setOpen(false)}
             className={cn(
-              "flex items-center gap-3 rounded-md px-3 py-2.5 text-sm transition-colors",
-              active ? "bg-surface2 text-fg" : "text-muted hover:bg-surface2/70 hover:text-fg",
+              "relative flex items-center gap-2.5 rounded-sm py-1.5 pl-3 pr-2.5 text-[13px] font-medium transition-colors",
+              active
+                ? "bg-surface2 text-fg before:absolute before:inset-y-1 before:left-0 before:w-[3px] before:rounded-full before:bg-accent"
+                : "text-muted hover:bg-surface2 hover:text-fg",
             )}
           >
             <Icon className="size-4 shrink-0" strokeWidth={1.75} />
             <span className="flex-1">{item.label}</span>
             {item.to === "/app/canhbao" && openAlerts > 0 ? (
-              <span className="rounded-full bg-bad/15 px-1.5 text-[10px] font-medium tabular-nums text-bad">
+              <span className="min-w-5 rounded-sm bg-bad px-1.5 py-0.5 text-center text-[10px] font-bold tabular-nums leading-none text-fg">
                 {openAlerts}
               </span>
             ) : null}
@@ -200,12 +228,12 @@ export function AppShell() {
 
   const sidebar = (
     <aside className="flex h-full w-[248px] flex-col border-r border-border bg-surface">
-      <div className="flex items-center gap-2.5 border-b border-border px-4 py-4">
-        <span className="grid size-9 place-items-center rounded-md bg-accent text-accent-fg">
+      <div className="flex items-center gap-2.5 border-b border-border px-3 py-3">
+        <span className="grid size-10 place-items-center rounded-sm bg-accent text-accent-fg shadow-panel">
           <Droplets className="size-4" strokeWidth={1.75} />
         </span>
         <div className="min-w-0">
-          <div className="truncate text-sm font-semibold tracking-tight">UMC · XLNT</div>
+          <div className="truncate text-[13px] font-semibold tracking-tight">UMC · XLNT</div>
           <div className="truncate text-[11px] text-muted">ĐH Y Dược TP.HCM</div>
         </div>
       </div>
@@ -213,9 +241,9 @@ export function AppShell() {
       <div className="border-t border-border p-3">
         <div className="flex items-center gap-2.5">
           {user.profileImageUrl ? (
-            <img src={user.profileImageUrl} alt="" className="size-8 rounded-md object-cover" />
+            <img src={user.profileImageUrl} alt="" className="size-8 rounded-sm object-cover" />
           ) : (
-            <span className="grid size-8 place-items-center rounded-md bg-surface2 text-xs font-medium">
+            <span className="grid size-8 place-items-center rounded-sm bg-surface2 text-xs font-medium">
               {(profile?.Ho_ten || user.displayName || "?").charAt(0)}
             </span>
           )}
@@ -243,28 +271,29 @@ export function AppShell() {
         </SheetContent>
       </Sheet>
       <div className="flex min-w-0 flex-col">
-        <header className="sticky top-0 z-20 flex h-14 items-center gap-3 border-b border-border bg-bg/85 px-4 backdrop-blur-md">
-          <Button variant="ghost" size="icon" className="lg:hidden" onClick={() => setOpen(true)}>
+        <header className="sticky top-0 z-20 flex h-12 items-center gap-3 border-b border-border bg-bg px-4">
+          <Button variant="ghost" size="icon" className="size-9 min-h-9 lg:hidden" onClick={() => setOpen(true)}>
             <Menu className="size-4" />
             <span className="sr-only">Mở menu</span>
           </Button>
-          <div className="min-w-0 truncate text-sm font-semibold">
+          <div className="min-w-0 truncate text-sm font-semibold tracking-tight">
             {TITLES[pathname] ?? "UMC"}
           </div>
-          <div className="ml-auto flex items-center gap-2">
+          <div className="ml-auto flex items-center gap-3">
+            <ShellClock />
+            <div className="hidden items-center gap-2 text-[11px] text-muted sm:flex">
+              <span className="size-1.5 rounded-full bg-ok" />
+              Hệ 600 + 220
+            </div>
             <InstallApp compact />
             <Button
               variant="secondary"
               size="sm"
-              className="h-9 px-3 text-xs"
+              className="h-8 px-3 text-xs"
               onClick={() => setTheme(toggleTheme())}
             >
               {theme === "dark" ? "Nền sáng" : "Nền tối"}
             </Button>
-            <div className="hidden items-center gap-2 text-xs text-muted sm:flex">
-              <span className="size-1.5 rounded-full bg-ok" />
-              Hệ 600 + 220
-            </div>
           </div>
         </header>
         <main className="flex-1 px-4 py-5 sm:px-6">

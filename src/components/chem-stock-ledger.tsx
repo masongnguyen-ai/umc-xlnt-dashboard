@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
-import { Plus, Trash2 } from "lucide-react";
+import { Clock, Lock, Plus, Trash2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -81,9 +81,11 @@ export function ChemStockLedger({
   const [edit, setEdit] = useState<ChemLedgerCycle | null>(null);
   const [receipts, setReceipts] = useState<ChemReceipt[]>([]);
   const [note, setNote] = useState("");
+  const [confirmLock, setConfirmLock] = useState(false);
 
   const openEditor = (c: ChemLedgerCycle) => {
     setEdit(c);
+    setConfirmLock(false);
     setReceipts(
       c.receipts.length
         ? c.receipts.map((r) => ({ ...r, qty: { ...r.qty } }))
@@ -120,32 +122,43 @@ export function ChemStockLedger({
       </p>
 
       {openCycles.length ? (
-        <div className="rounded-xl border border-warn/40 bg-warn/10 p-3 text-sm">
-          <div className="font-semibold text-warn">{openCycles.length} kỳ chưa chốt</div>
-          <ul className="mt-2 space-y-1">
-            {openCycles.map((c) => (
-              <li key={c.thang} className="flex flex-wrap items-center justify-between gap-2">
-                <span>
-                  {c.thang} · KH {fmtDate(c.importIso)}
-                  {c.receipts.length ? ` · đã ghi ${c.receipts.length} ngày` : ""}
-                </span>
-                {writable ? (
-                  <Button className="min-h-11" size="sm" onClick={() => openEditor(c)}>
-                    {c.receipts.length ? "Sửa nhập" : "Ghi nhận nhập"}
-                  </Button>
-                ) : (
-                  <Badge variant="warn">Chờ nhà thầu</Badge>
-                )}
-              </li>
-            ))}
-          </ul>
+        <div className="relative overflow-hidden rounded-lg border border-border bg-surface p-3 pl-4 shadow-panel">
+          <span className="absolute inset-y-0 left-0 w-[3px] bg-warn" />
+          <div className="flex items-start gap-2.5 text-sm">
+            <Clock className="mt-0.5 size-4 shrink-0 text-warn" strokeWidth={2} />
+            <div className="min-w-0 flex-1">
+              <div className="font-semibold text-warn">Chờ chốt — {openCycles.length} kỳ chưa khóa</div>
+              <ul className="mt-2 space-y-1">
+                {openCycles.map((c) => (
+                  <li key={c.thang} className="flex flex-wrap items-center justify-between gap-2">
+                    <span>
+                      {c.thang} · KH {fmtDate(c.importIso)}
+                      {c.receipts.length ? ` · đã ghi ${c.receipts.length} ngày` : ""}
+                    </span>
+                    {writable ? (
+                      <Button className="min-h-11" size="sm" onClick={() => openEditor(c)}>
+                        {c.receipts.length ? "Sửa nhập" : "Ghi nhận nhập"}
+                      </Button>
+                    ) : (
+                      <Badge variant="warn" className="gap-1">
+                        <Clock className="size-3" strokeWidth={2} />
+                        Chờ nhà thầu
+                      </Badge>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          </div>
         </div>
       ) : null}
 
       {current ? (
-        <article className="rounded-xl border border-border bg-surface p-4">
+        <article className="rounded-lg border border-border bg-surface p-4 shadow-panel">
           <div className="flex flex-wrap items-center gap-2">
-            <h3 className="text-sm font-semibold">Kỳ đang xem · {current.thang}</h3>
+            <h3 className="text-xs font-semibold uppercase tracking-[0.14em] text-muted">
+              Kỳ đang xem · {current.thang}
+            </h3>
             <StatusBadge c={current} />
           </div>
           <p className="mt-1 text-xs text-muted">
@@ -172,9 +185,10 @@ export function ChemStockLedger({
                 ["Tồn cuối", current.close],
               ] as const
             ).map(([label, q]) => (
-              <div key={label} className="rounded-lg border border-border px-3 py-2">
-                <dt className="text-xs text-dim">{label}</dt>
-                <dd className="mt-1 space-y-0.5 font-mono text-xs tabular-nums">
+              <div key={label} className="relative overflow-hidden rounded-lg border border-border bg-bg px-3 py-2 pl-3.5">
+                <span className="absolute inset-y-0 left-0 w-[3px] bg-accent" />
+                <dt className="kpi-label tracking-[0.12em]">{label}</dt>
+                <dd className="mt-1 space-y-0.5 font-mono text-xs tabular-nums tracking-tight">
                   {CHEM_QTY_KEYS.map((k) => (
                     <div key={k}>
                       {LABEL[k]} {fmtNum(q[k], digits(k))}
@@ -208,7 +222,7 @@ export function ChemStockLedger({
         </article>
       ) : null}
 
-      <div className="overflow-x-auto rounded-xl border border-border">
+      <div className="tbl-wrap max-w-full overflow-x-auto overscroll-x-contain rounded-lg border border-border">
         <table className="w-full min-w-[880px] text-sm">
           <thead className="bg-surface2 text-xs uppercase tracking-wide text-muted">
             <tr>
@@ -238,7 +252,7 @@ export function ChemStockLedger({
                 { loai: "Tồn cuối", ngay: c.endIso, q: c.close, muted: c.status !== "da-chot" },
               ];
               return rows.map((r, i) => (
-                <tr key={`${c.thang}-${r.loai}-${i}`} className={cn("border-t border-border", on && "bg-accent/10")}>
+                <tr key={`${c.thang}-${r.loai}-${i}`} className={cn("border-t border-border hover:bg-surface2", on && "bg-accent/10")}>
                   <td className="px-3 py-2">{i === 0 ? c.thang : ""}</td>
                   <td className="px-3 py-2 font-medium">{r.loai}</td>
                   <td className="px-3 py-2 text-muted">
@@ -253,7 +267,15 @@ export function ChemStockLedger({
         </table>
       </div>
 
-      <Dialog open={Boolean(edit)} onOpenChange={(o) => !o && setEdit(null)}>
+      <Dialog
+        open={Boolean(edit)}
+        onOpenChange={(o) => {
+          if (!o) {
+            setEdit(null);
+            setConfirmLock(false);
+          }
+        }}
+      >
         <DialogContent className="max-h-[90dvh] max-w-2xl overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Nhập kho {edit?.thang}</DialogTitle>
@@ -264,7 +286,7 @@ export function ChemStockLedger({
           {edit ? (
             <div className="space-y-3">
               {receipts.map((r, idx) => (
-                <fieldset key={r.id} className="rounded-xl border border-border p-3">
+                <fieldset key={r.id} className="rounded-md border-0 bg-bg p-3">
                   <div className="mb-2 flex items-center justify-between gap-2">
                     <Label>Ngày {idx + 1}</Label>
                     {canEdit && receipts.length > 1 ? (
@@ -328,7 +350,7 @@ export function ChemStockLedger({
                 </Button>
               ) : null}
 
-              <div className="rounded-xl border border-border bg-surface2 p-3 text-sm">
+              <div className="rounded-lg border border-border bg-bg p-3 text-sm">
                 <div className="text-xs uppercase tracking-wide text-dim">Tổng so với kế hoạch</div>
                 <ul className="mt-2 space-y-1 font-mono tabular-nums">
                   {CHEM_QTY_KEYS.map((k) => {
@@ -354,14 +376,40 @@ export function ChemStockLedger({
               </div>
 
               {canEdit ? (
-                <div className="flex flex-col gap-2 sm:flex-row">
-                  <Button type="button" variant="secondary" className="min-h-11 flex-1" onClick={() => void save(false)}>
-                    Lưu nháp
-                  </Button>
-                  <Button type="button" className="min-h-11 flex-1" onClick={() => void save(true)}>
-                    Chốt kỳ này
-                  </Button>
-                </div>
+                confirmLock ? (
+                  <div className="relative overflow-hidden rounded-lg border border-border bg-bg p-3 pl-4">
+                    <span className="absolute inset-y-0 left-0 w-[3px] bg-bad" />
+                    <p className="flex items-center gap-2 text-sm font-semibold text-bad">
+                      <Lock className="size-4 shrink-0" strokeWidth={2} />
+                      Xác nhận chốt kỳ {edit.thang}?
+                    </p>
+                    <p className="mt-1 text-xs text-muted">
+                      Khóa số nhập. Kỳ sau chạy từ tổng này. Chỉ quản lý sửa lại được.
+                    </p>
+                    <div className="mt-3 flex flex-col gap-2 sm:flex-row">
+                      <Button type="button" variant="destructive" className="min-h-11 flex-1" onClick={() => void save(true)}>
+                        Xác nhận chốt
+                      </Button>
+                      <Button type="button" variant="secondary" className="min-h-11" onClick={() => setConfirmLock(false)}>
+                        Quay lại
+                      </Button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="flex flex-col gap-2 sm:flex-row">
+                    <Button type="button" variant="secondary" className="min-h-11 flex-1" onClick={() => void save(false)}>
+                      Lưu nháp
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="destructive"
+                      className="min-h-11 flex-1"
+                      onClick={() => setConfirmLock(true)}
+                    >
+                      Chốt kỳ này
+                    </Button>
+                  </div>
+                )
               ) : (
                 <p className="text-xs text-dim">Đã chốt. Chỉ quản lý được sửa lại.</p>
               )}
@@ -374,8 +422,22 @@ export function ChemStockLedger({
 }
 
 function StatusBadge({ c }: { c: ChemLedgerCycle }) {
-  if (c.status === "da-chot") return <Badge variant="ok">Đã chốt</Badge>;
+  if (c.status === "da-chot") {
+    return (
+      <Badge variant="ok" className="gap-1">
+        <Lock className="size-3" strokeWidth={2} />
+        Đã chốt
+      </Badge>
+    );
+  }
   if (c.status === "dang-nhap") return <Badge variant="accent">Đang nhập</Badge>;
-  if (c.status === "cho-chot") return <Badge variant="warn">Chờ chốt</Badge>;
+  if (c.status === "cho-chot") {
+    return (
+      <Badge variant="warn" className="gap-1">
+        <Clock className="size-3" strokeWidth={2} />
+        Chờ chốt
+      </Badge>
+    );
+  }
   return <Badge>Dự kiến</Badge>;
 }
