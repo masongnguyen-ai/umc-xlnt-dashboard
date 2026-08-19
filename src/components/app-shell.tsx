@@ -6,7 +6,6 @@ import {
   Beaker,
   BookOpen,
   ClipboardList,
-  Droplets,
   FileDown,
   Gauge,
   History,
@@ -33,6 +32,7 @@ import { getTheme, toggleTheme } from "@/lib/theme";
 import { useSheetSync } from "@/hooks/use-sheet-sync";
 import { InstallApp } from "@/components/install-app";
 import { hydrateOpsFromServer } from "@/lib/ops/client";
+import { UmcBrandMark } from "@/components/umc-brand";
 
 const ICONS: Record<string, typeof LayoutDashboard> = {
   "/app/theodoi": Activity,
@@ -262,11 +262,9 @@ export function AppShell() {
   const sidebar = (
     <aside className="flex h-full w-[248px] flex-col border-r border-border bg-surface">
       <div className="flex items-center gap-2.5 border-b border-border px-3 py-3">
-        <span className="icon-mint size-10">
-          <Droplets className="size-4" strokeWidth={1.75} />
-        </span>
+        <UmcBrandMark className="size-10 shrink-0" />
         <div className="min-w-0">
-          <div className="truncate text-[13px] font-semibold tracking-tight">UMC · XLNT</div>
+          <div className="truncate text-[13px] font-semibold tracking-tight">UMC Water</div>
           <div className="truncate text-[11px] text-muted">ĐH Y Dược TP.HCM</div>
         </div>
       </div>

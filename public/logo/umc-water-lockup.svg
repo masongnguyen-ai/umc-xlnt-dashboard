@@ -1,4 +1,5 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512" role="img" aria-label="UMC Water"><rect x="16" y="16" width="480" height="480" rx="122" fill="#0f4c75"></rect>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 620 160" width="620" height="160" role="img" aria-label="UMC Water">
+  <g transform="translate(8 0) scale(0.3125)"><rect x="16" y="16" width="480" height="480" rx="122" fill="#0f4c75"></rect>
   <g fill="none" stroke="#4cb05c" stroke-width="24" stroke-linecap="round">
     <path d="M77.3 208.1 A185 185 0 0 1 434.7 208.1"></path>
     <path d="M434.7 303.9 A185 185 0 0 1 77.3 303.9"></path>
@@ -11,5 +12,7 @@
   <g fill="#0f4c75">
     <rect x="237" y="224" width="38" height="108" rx="11"></rect>
     <rect x="202" y="259" width="108" height="38" rx="11"></rect>
-  </g>
+  </g></g>
+  <text x="192" y="76" font-family="Figtree, Arial, Helvetica, sans-serif" font-weight="800" font-size="42" letter-spacing="1.5" fill="#0f4c75">UMC WATER</text>
+  <text x="194" y="108" font-family="Figtree, Arial, Helvetica, sans-serif" font-weight="700" font-size="19" letter-spacing="2" fill="#3f9a4f">HỆ THỐNG XỬ LÝ NƯỚC THẢI</text>
 </svg>

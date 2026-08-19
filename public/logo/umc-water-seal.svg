@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512" role="img" aria-label="UMC Water">
+  <defs>
+    <path id="ring-top" d="M256 256 m-184 0 a184 184 0 0 1 368 0" fill="none"></path>
+    <path id="ring-bot" d="M256 256 m-178 0 a178 178 0 0 0 356 0" fill="none"></path>
+  </defs>
+  <circle cx="256" cy="256" r="248" fill="#f2f7fb"></circle>
+  <circle cx="256" cy="256" r="238" fill="none" stroke="#0f4c75" stroke-width="14"></circle>
+  <circle cx="256" cy="256" r="140" fill="none" stroke="#4cb05c" stroke-width="5"></circle>
+  <g fill="#0f4c75" font-family="Figtree, Arial, Helvetica, sans-serif" font-weight="800" letter-spacing="3">
+    <text font-size="26"><textPath href="#ring-top" startOffset="50%" text-anchor="middle">HỆ THỐNG XỬ LÝ NƯỚC THẢI</textPath></text>
+    <text font-size="22" fill="#4a6a80"><textPath href="#ring-bot" startOffset="50%" text-anchor="middle">BỆNH VIỆN ĐẠI HỌC Y DƯỢC TP.HCM</textPath></text>
+  </g>
+  <path d="M256 152 C280 192 310 216 310 250 A54 54 0 1 1 202 250 C202 216 232 192 256 152 Z" fill="#0f4c75"></path>
+  <g fill="#eaf4fb">
+    <rect x="246" y="228" width="20" height="58" rx="6"></rect>
+    <rect x="228" y="246" width="58" height="20" rx="6"></rect>
+  </g>
+  <text x="256" y="356" text-anchor="middle" font-family="Figtree, Arial, Helvetica, sans-serif" font-weight="800" font-size="34" letter-spacing="3" fill="#0f4c75">UMC</text>
+</svg>

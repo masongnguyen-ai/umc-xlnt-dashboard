@@ -1,10 +1,11 @@
 import { useEffect, useState } from "react";
 import { createFileRoute, Navigate } from "@tanstack/react-router";
-import { Droplets, Eye, EyeOff } from "lucide-react";
+import { Eye, EyeOff } from "lucide-react";
 import { authClient, authEnabled } from "@/lib/auth/client";
 import { getLoginFlagsFn } from "@/lib/auth/login-flags";
 import { useCurrentUserState } from "@/lib/auth/use-current-user";
 import { persistAuthEvent } from "@/lib/ops/client";
+import { UmcBrandLockup, UmcBrandMark } from "@/components/umc-brand";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -151,13 +152,7 @@ function Login() {
     <main className="min-h-dvh bg-bg text-fg lg:grid lg:grid-cols-2">
       <section className="relative hidden min-h-dvh overflow-hidden bg-mint lg:flex lg:flex-col lg:justify-end lg:p-12">
         <div className="mb-auto flex items-center gap-3 pt-2">
-          <span className="icon-mint size-12 text-accent">
-            <Droplets className="size-5" strokeWidth={1.75} />
-          </span>
-          <div>
-            <div className="text-sm font-semibold tracking-tight">UMC · XLNT</div>
-            <div className="text-xs text-muted">Hệ thống vận hành trạm</div>
-          </div>
+          <UmcBrandLockup className="h-14 w-auto max-w-[280px]" />
         </div>
         <p className="text-xs font-medium uppercase tracking-[0.18em] text-accent">
           820 m³/ngày · QCVN 28:2010 cột B
@@ -175,12 +170,10 @@ function Login() {
         <div className="w-full max-w-sm rounded-lg border border-border bg-surface p-6 shadow-panel sm:p-8">
           <div className="mb-8">
             <div className="flex items-center gap-3 lg:hidden">
-              <span className="icon-mint size-12">
-                <Droplets className="size-5" strokeWidth={1.75} />
-              </span>
+              <UmcBrandMark className="size-12 shrink-0" />
               <div>
-                <div className="text-sm font-semibold tracking-tight">UMC · XLNT</div>
-                <div className="text-xs text-muted">Hệ thống vận hành trạm</div>
+                <div className="text-sm font-semibold tracking-tight">UMC Water</div>
+                <div className="text-xs text-muted">Hệ thống xử lý nước thải</div>
               </div>
             </div>
             <div className="mt-5 lg:hidden">

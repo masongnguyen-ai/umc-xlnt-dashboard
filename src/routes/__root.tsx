@@ -21,7 +21,7 @@ export const Route = createRootRoute({
       { name: "apple-mobile-web-app-capable", content: "yes" },
       { name: "mobile-web-app-capable", content: "yes" },
       { name: "apple-mobile-web-app-status-bar-style", content: "default" },
-      { name: "theme-color", content: "#EEF6F0" },
+      { name: "theme-color", content: "#0f4c75" },
       { name: "twitter:card", content: "summary_large_image" },
       { name: "description", content: "Hệ thống vận hành trạm xử lý nước thải Bệnh viện Đại học Y Dược TP.HCM" },
       ...(ogImage
@@ -33,15 +33,15 @@ export const Route = createRootRoute({
         : []),
     ],
     links: [
-      { rel: "icon", type: "image/svg+xml", href: "/favicon.svg" },
+      { rel: "icon", type: "image/svg+xml", href: "/logo/umc-water-icon.svg" },
       { rel: "stylesheet", href: appCss },
       { rel: "manifest", href: "/__grok/manifest.webmanifest" },
-      { rel: "apple-touch-icon", href: "/icons/icon-180.png" },
+      { rel: "apple-touch-icon", href: "/logo/umc-water-icon.svg" },
       { rel: "preconnect", href: "https://fonts.googleapis.com" },
       { rel: "preconnect", href: "https://fonts.gstatic.com", crossOrigin: "anonymous" },
       {
         rel: "stylesheet",
-        href: "https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap",
+        href: "https://fonts.googleapis.com/css2?family=Figtree:wght@700;800&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap",
       },
     ],
   }),
