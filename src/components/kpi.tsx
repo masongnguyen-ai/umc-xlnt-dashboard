@@ -4,7 +4,7 @@ import { DayNightClock } from "@/components/day-night-clock";
 function PrevBlock({ prev }: { prev?: string }) {
   if (!prev) return null;
   return (
-    <div className="kpi-prev mt-3 rounded-md bg-bg px-2.5 py-2 opacity-65">
+    <div className="kpi-prev mt-3 rounded-lg bg-mint px-2.5 py-2 opacity-80">
       {prev.split("\n").map((line) => (
         <div key={line} className="tabular-nums tracking-tight">
           {line}
@@ -108,7 +108,7 @@ export function Kpi({
         ) : parts?.length ? (
           <div className="mt-2 grid grid-cols-2 gap-2">
             {parts.map((p) => (
-              <div key={p.label} className="rounded-md bg-surface2 px-2 py-1.5">
+              <div key={p.label} className="rounded-lg bg-mint px-2 py-1.5">
                 <div className={cn(size === "hero" ? "kpi-label--part" : "kpi-label kpi-label--sm")}>{p.label}</div>
                 <div className={cn("kpi-value kpi-value--sm mt-0.5", valueTone)}>
                   {p.value}
@@ -155,7 +155,7 @@ export function EmptyState({
   hint: string;
 }) {
   return (
-    <div className="rounded-lg border border-dashed border-border px-6 py-16 text-center">
+    <div className="rounded-lg border border-dashed border-border bg-surface px-6 py-16 text-center">
       <h3 className="text-sm font-semibold">{title}</h3>
       <p className="mx-auto mt-2 max-w-sm text-sm text-muted">{hint}</p>
     </div>

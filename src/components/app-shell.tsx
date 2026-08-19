@@ -80,9 +80,9 @@ function ShellClock() {
     timeZone: "Asia/Ho_Chi_Minh",
   });
   return (
-    <div className="hidden font-mono text-[12px] tabular-nums tracking-tight sm:block">
+    <div className="font-mono text-[12px] tabular-nums tracking-tight">
       <span className="text-fg">{time}</span>
-      <span className="ml-2 text-dim">{date}</span>
+      <span className="ml-2 hidden text-dim sm:inline">{date}</span>
     </div>
   );
 }
@@ -91,10 +91,12 @@ export function AppShell() {
   const { user, isPending } = useCurrentUserState();
   const [ready, setReady] = useState(false);
   const [open, setOpen] = useState(false);
-  const [theme, setTheme] = useState<"dark" | "light">("dark");
+  const [theme, setTheme] = useState<"dark" | "light">("light");
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const users = useAppStore((s) => s.users);
   const alerts = useAppStore((s) => s.alerts);
+  const chemicals = useAppStore((s) => s.chemicals);
+  const stocks = useAppStore((s) => s.stocks);
   const staffBlocked = useAppStore((s) => s.staffBlocked);
   const opsReady = useAppStore((s) => s.opsReady);
   useSheetSync(ready);
@@ -179,6 +181,17 @@ export function AppShell() {
 
   const role: Role = profile?.Vai_tro ?? "CA_TRUC";
   const openAlerts = alerts.filter((a) => a.Trang_thai === "MOI" || a.Trang_thai === "DA_XEM").length;
+  const lowStock = chemicals.filter((c) => {
+    const ton = stocks[c.Ma_hoa_chat] ?? 0;
+    return ton === 0 || (c.Nguong_canh_bao_ton != null && ton <= c.Nguong_canh_bao_ton);
+  }).length;
+
+  const QUICK: { to: string; action: Action; label: string; badge?: number; warn?: boolean }[] = [
+    { to: "/app/theodoi", action: "theodoi", label: "Theo dõi" },
+    { to: "/app/canhbao", action: "canhbao", label: "Cảnh báo", badge: openAlerts, warn: true },
+    { to: "/app/nhatky", action: "nhatky", label: "Nhật ký" },
+    { to: "/app/hoachat", action: "hoachat", label: "Hóa chất", badge: lowStock, warn: true },
+  ];
 
   const nav = (
     <nav className="flex flex-1 flex-col gap-px px-2 py-2">
@@ -193,10 +206,12 @@ export function AppShell() {
           return (
             <div
               key={item.to}
-              className="flex items-center gap-2.5 rounded-sm px-3 py-1.5 text-[13px] text-dim/50"
+              className="flex items-center gap-2.5 rounded-lg px-3 py-1.5 text-[13px] text-dim/50"
               title="Không có quyền"
             >
-              <Icon className="size-4 shrink-0" strokeWidth={1.75} />
+              <span className="icon-mint size-7 opacity-40">
+                <Icon className="size-3.5" strokeWidth={1.75} />
+              </span>
               <span className="flex-1">{item.label}</span>
             </div>
           );
@@ -207,16 +222,18 @@ export function AppShell() {
             to={item.to}
             onClick={() => setOpen(false)}
             className={cn(
-              "relative flex items-center gap-2.5 rounded-sm py-1.5 pl-3 pr-2.5 text-[13px] font-medium transition-colors",
+              "relative flex items-center gap-2.5 rounded-lg py-1.5 pl-3 pr-2.5 text-[13px] font-medium transition-colors",
               active
-                ? "bg-surface2 text-fg before:absolute before:inset-y-1 before:left-0 before:w-[3px] before:rounded-full before:bg-accent"
-                : "text-muted hover:bg-surface2 hover:text-fg",
+                ? "bg-mint text-fg before:absolute before:inset-y-1 before:left-0 before:w-[3px] before:rounded-full before:bg-accent"
+                : "text-muted hover:bg-mint/70 hover:text-fg",
             )}
           >
-            <Icon className="size-4 shrink-0" strokeWidth={1.75} />
+            <span className="icon-mint size-7">
+              <Icon className="size-3.5" strokeWidth={1.75} />
+            </span>
             <span className="flex-1">{item.label}</span>
             {item.to === "/app/canhbao" && openAlerts > 0 ? (
-              <span className="min-w-5 rounded-sm bg-bad px-1.5 py-0.5 text-center text-[10px] font-bold tabular-nums leading-none text-fg">
+              <span className="min-w-5 rounded-full bg-bad px-1.5 py-0.5 text-center text-[10px] font-bold tabular-nums leading-none text-white">
                 {openAlerts}
               </span>
             ) : null}
@@ -229,7 +246,7 @@ export function AppShell() {
   const sidebar = (
     <aside className="flex h-full w-[248px] flex-col border-r border-border bg-surface">
       <div className="flex items-center gap-2.5 border-b border-border px-3 py-3">
-        <span className="grid size-10 place-items-center rounded-sm bg-accent text-accent-fg shadow-panel">
+        <span className="icon-mint size-10">
           <Droplets className="size-4" strokeWidth={1.75} />
         </span>
         <div className="min-w-0">
@@ -241,9 +258,9 @@ export function AppShell() {
       <div className="border-t border-border p-3">
         <div className="flex items-center gap-2.5">
           {user.profileImageUrl ? (
-            <img src={user.profileImageUrl} alt="" className="size-8 rounded-sm object-cover" />
+            <img src={user.profileImageUrl} alt="" className="size-8 rounded-full object-cover" />
           ) : (
-            <span className="grid size-8 place-items-center rounded-sm bg-surface2 text-xs font-medium">
+            <span className="icon-mint size-8 text-xs font-medium">
               {(profile?.Ho_ten || user.displayName || "?").charAt(0)}
             </span>
           )}
@@ -271,7 +288,7 @@ export function AppShell() {
         </SheetContent>
       </Sheet>
       <div className="flex min-w-0 flex-col">
-        <header className="sticky top-0 z-20 flex h-12 items-center gap-3 border-b border-border bg-bg px-4">
+        <header className="sticky top-0 z-20 flex h-14 items-center gap-3 border-b border-border bg-surface px-4 shadow-panel">
           <Button variant="ghost" size="icon" className="size-9 min-h-9 lg:hidden" onClick={() => setOpen(true)}>
             <Menu className="size-4" />
             <span className="sr-only">Mở menu</span>
@@ -296,6 +313,52 @@ export function AppShell() {
             </Button>
           </div>
         </header>
+        <div className="grid grid-cols-2 gap-3 px-4 pt-4 lg:hidden">
+          {QUICK.map((item) => {
+            const allowed = can(role, item.action);
+            const Icon = ICONS[item.to] ?? Gauge;
+            const active = pathname === item.to;
+            const badge = item.badge ?? 0;
+            if (!allowed) {
+              return (
+                <div
+                  key={item.to}
+                  className="flex min-h-[5.5rem] flex-col justify-between rounded-lg border border-border bg-surface p-3 opacity-40 shadow-panel"
+                >
+                  <span className="icon-mint size-10">
+                    <Icon className="size-5" strokeWidth={1.75} />
+                  </span>
+                  <span className="text-sm font-semibold">{item.label}</span>
+                </div>
+              );
+            }
+            return (
+              <Link
+                key={item.to}
+                to={item.to}
+                className={cn(
+                  "relative flex min-h-[5.5rem] flex-col justify-between rounded-lg border p-3 shadow-panel transition-colors",
+                  active ? "border-accent bg-mint" : "border-border bg-surface hover:bg-mint/60",
+                )}
+              >
+                <span className="icon-mint size-10">
+                  <Icon className="size-5" strokeWidth={1.75} />
+                </span>
+                {badge > 0 ? (
+                  <span
+                    className={cn(
+                      "absolute right-3 top-3 min-w-6 rounded-full px-1.5 py-0.5 text-center text-[11px] font-bold tabular-nums leading-none",
+                      item.warn ? "bg-bad text-white" : "bg-accent text-accent-fg",
+                    )}
+                  >
+                    {badge}
+                  </span>
+                ) : null}
+                <span className="text-sm font-semibold">{item.label}</span>
+              </Link>
+            );
+          })}
+        </div>
         <main className="flex-1 px-4 py-5 sm:px-6">
           {locked ? (
             <div className="mx-auto max-w-md py-20 text-center">

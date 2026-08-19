@@ -4,16 +4,15 @@ import { cva, type VariantProps } from "class-variance-authority";
 import { cn } from "@/lib/utils";
 
 const buttonVariants = cva(
-  "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium transition-[color,background-color,border-color,filter,opacity,transform] duration-150 ease-out disabled:pointer-events-none disabled:cursor-not-allowed disabled:border-border disabled:bg-surface2 disabled:text-dim disabled:opacity-100 disabled:saturate-50 disabled:shadow-none [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/55 active:scale-[0.98]",
+  "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-lg text-sm font-medium transition-[color,background-color,border-color,filter,opacity,transform] duration-150 ease-out disabled:pointer-events-none disabled:cursor-not-allowed disabled:border-border disabled:bg-surface2 disabled:text-dim disabled:opacity-100 disabled:saturate-50 disabled:shadow-none [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/45 active:scale-[0.98]",
   {
     variants: {
       variant: {
-        default:
-          "bg-accent text-accent-fg shadow-[inset_0_1px_0_rgba(255,255,255,0.18)] hover:brightness-110",
-        secondary: "border border-border-strong bg-transparent text-fg hover:bg-surface2",
-        ghost: "text-muted hover:bg-surface2 hover:text-fg",
-        outline: "border border-border bg-transparent text-fg hover:bg-surface2",
-        destructive: "bg-bad text-fg hover:brightness-110",
+        default: "bg-accent text-accent-fg hover:bg-accent-hover",
+        secondary: "border border-border-strong bg-surface text-fg hover:bg-mint",
+        ghost: "text-muted hover:bg-mint hover:text-fg",
+        outline: "border border-border bg-transparent text-fg hover:bg-mint",
+        destructive: "bg-bad text-white hover:brightness-110",
         link: "text-accent underline-offset-4 hover:underline",
       },
       size: {

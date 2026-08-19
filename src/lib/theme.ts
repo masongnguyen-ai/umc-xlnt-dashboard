@@ -1,7 +1,7 @@
 const KEY = "umc_theme";
 
 export function getTheme(): "dark" | "light" {
-  if (typeof document === "undefined") return "dark";
+  if (typeof document === "undefined") return "light";
   const cur = document.documentElement.getAttribute("data-theme");
   if (cur === "light" || cur === "dark") return cur;
   try {
@@ -10,7 +10,7 @@ export function getTheme(): "dark" | "light" {
   } catch {
     /* ignore */
   }
-  return "dark";
+  return "light";
 }
 
 export function applyTheme(theme: "dark" | "light") {

@@ -20,8 +20,8 @@ export const Route = createRootRoute({
       { name: "apple-mobile-web-app-title", content: APP_NAME },
       { name: "apple-mobile-web-app-capable", content: "yes" },
       { name: "mobile-web-app-capable", content: "yes" },
-      { name: "apple-mobile-web-app-status-bar-style", content: "black-translucent" },
-      { name: "theme-color", content: "#0c1116" },
+      { name: "apple-mobile-web-app-status-bar-style", content: "default" },
+      { name: "theme-color", content: "#EEF6F0" },
       { name: "twitter:card", content: "summary_large_image" },
       { name: "description", content: "Hệ thống vận hành trạm xử lý nước thải Bệnh viện Đại học Y Dược TP.HCM" },
       ...(ogImage
@@ -51,7 +51,7 @@ export const Route = createRootRoute({
         <HeadContent />
         <script
           dangerouslySetInnerHTML={{
-            __html: `(function(){try{var t=localStorage.getItem('umc_theme');if(t==='light'||t==='dark')document.documentElement.setAttribute('data-theme',t);}catch(e){}})();`,
+            __html: `(function(){try{var t=localStorage.getItem('umc_theme');if(t!=='light'&&t!=='dark')t='light';document.documentElement.setAttribute('data-theme',t);}catch(e){document.documentElement.setAttribute('data-theme','light');}})();`,
           }}
         />
       </head>
@@ -61,7 +61,7 @@ export const Route = createRootRoute({
           <TooltipProvider delayDuration={250}>
             <Outlet />
             <Toaster
-              theme="dark"
+              theme="light"
               position="top-right"
               toastOptions={{
                 className: "!bg-surface !border-border !text-fg",
