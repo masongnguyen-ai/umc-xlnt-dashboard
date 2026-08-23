@@ -24,6 +24,7 @@ import { Route as AppNhatkySoRouteImport } from './routes/app/nhatky-so'
 import { Route as AppQuantriRouteImport } from './routes/app/quantri'
 import { Route as AppTheodoiRouteImport } from './routes/app/theodoi'
 import { Route as AppThietbiRouteImport } from './routes/app/thietbi'
+import { Route as AppBanveRouteImport } from './routes/app/banve'
 import { Route as AppTrienkhaiRouteImport } from './routes/app/trienkhai'
 import { Route as ApiAuthSplatRouteImport } from './routes/api/auth/$'
 
@@ -102,6 +103,11 @@ const AppThietbiRoute = AppThietbiRouteImport.update({
   path: '/thietbi',
   getParentRoute: () => AppRoute,
 } as any)
+const AppBanveRoute = AppBanveRouteImport.update({
+  id: '/banve',
+  path: '/banve',
+  getParentRoute: () => AppRoute,
+} as any)
 const AppTrienkhaiRoute = AppTrienkhaiRouteImport.update({
   id: '/trienkhai',
   path: '/trienkhai',
@@ -128,6 +134,7 @@ export interface FileRoutesByFullPath {
   '/app/quantri': typeof AppQuantriRoute
   '/app/theodoi': typeof AppTheodoiRoute
   '/app/thietbi': typeof AppThietbiRoute
+  '/app/banve': typeof AppBanveRoute
   '/app/trienkhai': typeof AppTrienkhaiRoute
   '/app/': typeof AppIndexRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
@@ -146,6 +153,7 @@ export interface FileRoutesByTo {
   '/app/quantri': typeof AppQuantriRoute
   '/app/theodoi': typeof AppTheodoiRoute
   '/app/thietbi': typeof AppThietbiRoute
+  '/app/banve': typeof AppBanveRoute
   '/app/trienkhai': typeof AppTrienkhaiRoute
   '/app': typeof AppIndexRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
@@ -166,6 +174,7 @@ export interface FileRoutesById {
   '/app/quantri': typeof AppQuantriRoute
   '/app/theodoi': typeof AppTheodoiRoute
   '/app/thietbi': typeof AppThietbiRoute
+  '/app/banve': typeof AppBanveRoute
   '/app/trienkhai': typeof AppTrienkhaiRoute
   '/app/': typeof AppIndexRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
@@ -187,6 +196,7 @@ export interface FileRouteTypes {
     | '/app/quantri'
     | '/app/theodoi'
     | '/app/thietbi'
+    | '/app/banve'
     | '/app/trienkhai'
     | '/app/'
     | '/api/auth/$'
@@ -205,6 +215,7 @@ export interface FileRouteTypes {
     | '/app/quantri'
     | '/app/theodoi'
     | '/app/thietbi'
+    | '/app/banve'
     | '/app/trienkhai'
     | '/app'
     | '/api/auth/$'
@@ -224,6 +235,7 @@ export interface FileRouteTypes {
     | '/app/quantri'
     | '/app/theodoi'
     | '/app/thietbi'
+    | '/app/banve'
     | '/app/trienkhai'
     | '/app/'
     | '/api/auth/$'
@@ -344,6 +356,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppThietbiRouteImport
       parentRoute: typeof AppRoute
     }
+    '/app/banve': {
+      id: '/app/banve'
+      path: '/banve'
+      fullPath: '/app/banve'
+      preLoaderRoute: typeof AppBanveRouteImport
+      parentRoute: typeof AppRoute
+    }
     '/app/trienkhai': {
       id: '/app/trienkhai'
       path: '/trienkhai'
@@ -372,6 +391,7 @@ interface AppRouteChildren {
   AppQuantriRoute: typeof AppQuantriRoute
   AppTheodoiRoute: typeof AppTheodoiRoute
   AppThietbiRoute: typeof AppThietbiRoute
+  AppBanveRoute: typeof AppBanveRoute
   AppTrienkhaiRoute: typeof AppTrienkhaiRoute
   AppIndexRoute: typeof AppIndexRoute
 }
@@ -387,6 +407,7 @@ const AppRouteChildren: AppRouteChildren = {
   AppQuantriRoute: AppQuantriRoute,
   AppTheodoiRoute: AppTheodoiRoute,
   AppThietbiRoute: AppThietbiRoute,
+  AppBanveRoute: AppBanveRoute,
   AppTrienkhaiRoute: AppTrienkhaiRoute,
   AppIndexRoute: AppIndexRoute,
 }

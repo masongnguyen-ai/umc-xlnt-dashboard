@@ -7,6 +7,8 @@ export type Action =
   | "ai"
   | "hoachat"
   | "thietbi"
+  | "bave"
+  | "write_bave"
   | "baocao"
   | "nguong"
   | "quantri"
@@ -27,13 +29,15 @@ export type Action =
   | "write_backup";
 
 const MATRIX: Record<Role, Action[]> = {
-  CA_TRUC: ["theodoi", "canhbao", "nhatky", "ai", "hoachat", "view_nhatky", "write_nhatky", "write_chem_dose", "view_audit"],
+  CA_TRUC: ["theodoi", "canhbao", "nhatky", "ai", "hoachat", "bave", "view_nhatky", "write_nhatky", "write_chem_dose", "view_audit"],
   NHA_THAU: [
     "theodoi",
     "canhbao",
     "nhatky",
     "hoachat",
     "thietbi",
+    "bave",
+    "write_bave",
     "baocao",
     "ai",
     "view_nhatky",
@@ -51,6 +55,8 @@ const MATRIX: Record<Role, Action[]> = {
     "nguong",
     "ai",
     "thietbi",
+    "bave",
+    "write_bave",
     "hoachat",
     "nhatky",
     "baocao",
@@ -92,6 +98,7 @@ export const NAV_ITEMS: NavItem[] = [
   { to: "/app/nguong", action: "nguong", label: "Ngưỡng", hint: "26 ngưỡng · 3 nhóm" },
   { to: "/app/hoachat", action: "hoachat", label: "Hóa chất", hint: "Tra cứu · tồn kho" },
   { to: "/app/thietbi", action: "thietbi", label: "Thiết bị", hint: "34 hạng mục" },
+  { to: "/app/banve", action: "bave", label: "Bản vẽ CAD", hint: "DXF · AutoCAD" },
   { to: "/app/baocao", action: "baocao", label: "Báo cáo", hint: "Tổng hợp ca" },
   { to: "/app/ai", action: "ai", label: "Trợ lý", hint: "Kế hoạch" },
   { to: "/app/quantri", action: "quantri", label: "Quản trị", hint: "Tài khoản · cấu hình" },
