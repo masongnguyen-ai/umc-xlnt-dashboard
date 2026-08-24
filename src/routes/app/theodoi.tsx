@@ -21,7 +21,7 @@ import { fmtNum, todayISO } from "@/lib/format";
 import { kpiClass, annotateFlow } from "@/lib/flow";
 import { syncSheet } from "@/lib/sync-sheet";
 import { Kpi } from "@/components/kpi";
-import { WasteMasterCard } from "@/components/waste-master-card";
+import { WasteMasterCard, FlowMasterCard } from "@/components/waste-master-card";
 import { SourceBanner } from "@/components/source-banner";
 import { HtmlFilesCard } from "@/components/html-files-card";
 import { InstallApp } from "@/components/install-app";
@@ -418,11 +418,41 @@ function TheoDoi() {
       </section>
 
       <section className="space-y-2">
-        <h2 className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.12em] text-muted">
+        <h2 className="hidden items-center gap-2 text-xs font-semibold uppercase tracking-[0.12em] text-muted lg:flex">
           <Waves className="size-3.5 text-info" strokeWidth={1.75} />
           Nước cấp
         </h2>
-        <div className="grid grid-cols-1 gap-2 lg:grid-cols-2 lg:gap-3">
+        <FlowMasterCard
+          className="lg:hidden"
+          title="Nước cấp A+B"
+          tag={last?.thu}
+          total={fmtNum(last?.llcap)}
+          dayLabel="Ban ngày"
+          nightLabel="Ban đêm"
+          day={fmtNum(last?.capday)}
+          night={fmtNum(last?.capdem)}
+          totalHist={prevDayItems(flowDays, "llcap")}
+          totalMax={fmtNum(maxOf(recs, "llcap"))}
+          totalMin={fmtMin(minOf(recs, "llcap")) ?? "–"}
+          totalAvg={fmtNum(avg(recs, "llcap"))}
+          left={{
+            title: "Nước cấp A",
+            value: fmtNum(last?.llcapA),
+            hist: prevDayItems(flowDays, "llcapA"),
+            max: fmtNum(maxOf(recs, "llcapA")),
+            min: fmtMin(minOf(recs, "llcapA")) ?? "–",
+            avg: fmtNum(avg(recs, "llcapA")),
+          }}
+          right={{
+            title: "Nước cấp B",
+            value: fmtNum(last?.llcapB),
+            hist: prevDayItems(flowDays, "llcapB"),
+            max: fmtNum(maxOf(recs, "llcapB")),
+            min: fmtMin(minOf(recs, "llcapB")) ?? "–",
+            avg: fmtNum(avg(recs, "llcapB")),
+          }}
+        />
+        <div className="hidden grid-cols-1 gap-2 lg:grid lg:grid-cols-2 lg:gap-3">
           <Kpi
             className="lg:row-span-2 lg:h-full"
             size="hero"
