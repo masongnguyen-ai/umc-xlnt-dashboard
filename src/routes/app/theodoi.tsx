@@ -21,6 +21,7 @@ import { fmtNum, todayISO } from "@/lib/format";
 import { kpiClass, annotateFlow } from "@/lib/flow";
 import { syncSheet } from "@/lib/sync-sheet";
 import { Kpi } from "@/components/kpi";
+import { WasteMasterCard } from "@/components/waste-master-card";
 import { SourceBanner } from "@/components/source-banner";
 import { HtmlFilesCard } from "@/components/html-files-card";
 import { InstallApp } from "@/components/install-app";
@@ -88,6 +89,13 @@ function prevDays(days: FlowDay[], field: keyof FlowDay, digits = 0) {
       return `${shortNgay(d.ngay)}: ${fmtNum(typeof n === "number" ? n : null, digits)} m³`;
     })
     .join("\n");
+}
+
+function prevDayItems(days: FlowDay[], field: keyof FlowDay, digits = 0) {
+  return days.slice(-3, -1).reverse().map((d) => {
+    const n = d[field];
+    return { label: shortNgay(d.ngay), value: fmtNum(typeof n === "number" ? n : null, digits) };
+  });
 }
 
 function minSigned(arr: FlowDay[], f: keyof FlowDay) {
@@ -335,11 +343,32 @@ function TheoDoi() {
       </div>
 
       <section className="space-y-2">
-        <h2 className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.12em] text-muted">
+        <h2 className="hidden items-center gap-2 text-xs font-semibold uppercase tracking-[0.12em] text-muted lg:flex">
           <Droplets className="size-3.5 text-accent" strokeWidth={1.75} />
           Nước thải
         </h2>
-        <div className="grid grid-cols-1 gap-2 lg:grid-cols-2 lg:gap-3">
+        <WasteMasterCard
+          className="lg:hidden"
+          tag={last?.thu}
+          total={fmtNum(last?.llnt)}
+          day={fmtNum(last?.ntday)}
+          night={fmtNum(last?.lldem)}
+          totalHist={prevDayItems(flowDays, "llnt")}
+          totalMax={fmtNum(maxOf(recs, "llnt"))}
+          totalMin={fmtMin(minOf(recs, "llnt")) ?? "–"}
+          totalAvg={fmtNum(avg(recs, "llnt"))}
+          he600={fmtNum(last?.ll600)}
+          he600Hist={prevDayItems(flowDays, "ll600")}
+          he600Max={fmtNum(maxOf(recs, "ll600"))}
+          he600Min={fmtMin(minOf(recs, "ll600")) ?? "–"}
+          he600Avg={fmtNum(avg(recs, "ll600"))}
+          he220={fmtNum(last?.ll220)}
+          he220Hist={prevDayItems(flowDays, "ll220")}
+          he220Max={fmtNum(maxOf(recs, "ll220"))}
+          he220Min={fmtMin(minOf(recs, "ll220")) ?? "–"}
+          he220Avg={fmtNum(avg(recs, "ll220"))}
+        />
+        <div className="hidden grid-cols-1 gap-2 lg:grid lg:grid-cols-2 lg:gap-3">
           <Kpi
             className="lg:row-span-2 lg:h-full"
             size="hero"
