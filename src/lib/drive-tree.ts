@@ -9,6 +9,7 @@ export const DRIVE_TREE = [
   { folder: "03_Anh_chung_minh/nhat_ky", note: "Ảnh nhật ký ca / bất thường." },
   { folder: "03_Anh_chung_minh/bao_tri", note: "Ảnh bảo trì, thay phụ tùng." },
   { folder: "04_Tai_lieu", note: "GPMT, lý lịch thiết bị, biên bản, hướng dẫn." },
+  { folder: "06_Ban_ve_CAD", note: "DWG/DXF AutoCAD (P&ID, mặt bằng). App đọc DXF ASCII; DWG mở bằng AutoCAD / Drive." },
   { folder: "05_Apps_Script", note: "Ghi URL Backend, Dashboard, ChemBridge vào một Google Doc." },
 ] as const;
 

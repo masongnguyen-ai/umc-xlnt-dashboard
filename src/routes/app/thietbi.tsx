@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { toast } from "sonner";
 import { useAppStore } from "@/lib/store";
 import { useCurrentUser } from "@/lib/auth/use-current-user";
@@ -146,7 +146,7 @@ function ThietBi() {
 
   return (
     <div className="mx-auto max-w-6xl space-y-5">
-      <div className="flex flex-wrap gap-2 text-sm text-muted">
+      <div className="flex flex-wrap items-center gap-2 text-sm text-muted">
         <span>
           {equipments.length} hạng mục · {n600} hệ 600 + {n220} hệ 220
         </span>
@@ -154,6 +154,10 @@ function ThietBi() {
         <span>{incidents.length} sự cố lịch sử</span>
         <span className="text-dim">·</span>
         <span>{maintenances.length} bảo trì T04/2026</span>
+        <span className="text-dim">·</span>
+        <Link to="/app/banve" search={{ tb: undefined }} className="text-accent hover:underline">
+          Bản vẽ CAD
+        </Link>
       </div>
 
       <Tabs defaultValue="ds">
