@@ -105,9 +105,9 @@ self.addEventListener("fetch", (event) => {
     return;
   }
 
-  // iOS: mọi lần mở trang đều đánh thức SW kéo sheet
+  // iOS: mọi lần mở trang đều đánh thức SW kéo sheet.
+  // Không chặn /_serverFn hay /api/auth — intercept toàn bộ fetch dễ gây Failed to fetch.
   if (event.request.mode === "navigate") {
     event.waitUntil(pull());
   }
-  event.respondWith(fetch(event.request));
 });

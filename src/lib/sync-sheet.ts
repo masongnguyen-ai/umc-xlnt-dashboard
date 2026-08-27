@@ -116,7 +116,11 @@ export async function syncSheet(opts?: { toast?: "always" | "change" | "never"; 
     }
     return result;
   } catch (err) {
-    setLive({ running: false, error: err instanceof Error ? err.message : "Lỗi nạp sheet" });
+    const raw = err instanceof Error ? err.message : "Lỗi nạp sheet";
+    const error = /failed to fetch|networkerror|load failed/i.test(raw)
+      ? "Không kết nối được máy chủ. Thử lại sau vài giây."
+      : raw;
+    setLive({ running: false, error });
     throw err;
   } finally {
     inFlight = null;

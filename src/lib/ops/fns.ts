@@ -25,29 +25,8 @@ export const getOpsStateFn = createServerFn({ method: "GET" })
   .handler(async ({ context }): Promise<OpsState> => {
     const { requireAction } = await import("./staff.server");
     const { loadOpsState } = await import("./chem.server");
-    const { loadOpsLedger } = await import("./ops-sheet.server");
     await requireAction(context.userId, "hoachat");
-    const state = await loadOpsState();
-    try {
-      const ledger = await loadOpsLedger();
-      return {
-        ...state,
-        confirms: ledger.confirms,
-        doses: ledger.doses,
-        restocks: ledger.restocks,
-        sheet: ledger.sheet,
-      };
-    } catch (err) {
-      return {
-        ...state,
-        sheet: {
-          ok: false,
-          mode: "sheets",
-          tabs: ["NHAT_KY", "HOA_CHAT_LIEU"],
-          error: err instanceof Error ? err.message : "Không đọc được Sheet vận hành.",
-        },
-      };
-    }
+    return loadOpsState();
   });
 
 export const saveChemImportFn = createServerFn({ method: "POST" })

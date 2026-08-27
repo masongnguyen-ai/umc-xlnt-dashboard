@@ -39,7 +39,18 @@ function sheetToast(sheet?: SheetSyncInfo) {
   else toast.error(sheet.error || "Không ghi được Sheet vận hành.", { id: "ops-sheet" });
 }
 
+const NET_RE =
+  /failed to fetch|networkerror|load failed|network request failed|the internet connection appears to be offline|aborted|err_network|err_connection|timeout/i;
+
+export function isNetworkFailure(err: unknown) {
+  const msg = err instanceof Error ? err.message : String(err ?? "");
+  return NET_RE.test(msg);
+}
+
 function errMsg(err: unknown, fallback: string) {
+  if (isNetworkFailure(err)) {
+    return "Không kết nối được máy chủ. Thử lại sau vài giây.";
+  }
   if (err && typeof err === "object" && "message" in err && typeof err.message === "string") {
     return err.message;
   }
@@ -54,34 +65,74 @@ function failedTabs(audit: SheetAuditRow[]) {
   return new Set(audit.filter((a) => a.error).map((a) => a.tab));
 }
 
-export async function reloadOpsLedger() {
-  try {
-    const ledger = await getOpsLedgerFn();
-    const failed = failedTabs(ledger.audit);
-    useAppStore.getState().hydrateOps({
-      logs: failed.has("NHAT_KY") ? undefined : ledger.logs,
-      chemConfirms: failed.has("HOA_CHAT_NHAP") ? undefined : ledger.confirms,
-      chemDoses: failed.has("HOA_CHAT_LIEU") ? undefined : ledger.doses,
-      chemRestocks: failed.has("HOA_CHAT_DIEU_DONG") ? undefined : ledger.restocks,
-      incidents: failed.has("SU_CO_TB") ? undefined : ledger.incidents,
-      maintenances: failed.has("BAO_TRI_TB") ? undefined : ledger.maintenances,
-      sheetAudit: ledger.audit,
-      sheetSync: ledger.sheet,
-    });
-    if (!ledger.sheet.ok) toast.error(ledger.sheet.error || "Không đọc được Sheet vận hành.", { id: "ops-sheet" });
-    return ledger;
-  } catch (err) {
-    const error = errMsg(err, "Không đọc được Sheet vận hành.");
-    useAppStore.setState({
-      sheetSync: { ok: false, mode: "sheets", tabs: [], error },
-    });
-    toast.error(error, { id: "ops-sheet" });
-    return null;
-  }
+const LEDGER_CLIENT_MS = 15_000;
+let ledgerInflight: Promise<Awaited<ReturnType<typeof getOpsLedgerFn>> | null> | null = null;
+let ledgerOkAt = 0;
+let ledgerFailAt = 0;
+
+export async function reloadOpsLedger(force = false) {
+  if (ledgerInflight) return ledgerInflight;
+  const now = Date.now();
+  if (!force && ledgerOkAt && now - ledgerOkAt < LEDGER_CLIENT_MS) return null;
+  if (!force && ledgerFailAt && now - ledgerFailAt < 8_000) return null;
+
+  ledgerInflight = (async () => {
+    try {
+      const ledger = await getOpsLedgerFn();
+      const failed = failedTabs(ledger.audit);
+      useAppStore.getState().hydrateOps({
+        logs: failed.has("NHAT_KY") ? undefined : ledger.logs,
+        chemConfirms: failed.has("HOA_CHAT_NHAP") ? undefined : ledger.confirms,
+        chemDoses: failed.has("HOA_CHAT_LIEU") ? undefined : ledger.doses,
+        chemRestocks: failed.has("HOA_CHAT_DIEU_DONG") ? undefined : ledger.restocks,
+        incidents: failed.has("SU_CO_TB") ? undefined : ledger.incidents,
+        maintenances: failed.has("BAO_TRI_TB") ? undefined : ledger.maintenances,
+        sheetAudit: ledger.audit,
+        sheetSync: ledger.sheet,
+      });
+      ledgerOkAt = Date.now();
+      ledgerFailAt = 0;
+      if (!ledger.sheet.ok) toast.error(ledger.sheet.error || "Không đọc được Sheet vận hành.", { id: "ops-sheet" });
+      return ledger;
+    } catch (err) {
+      ledgerFailAt = Date.now();
+      const error = errMsg(err, "Không đọc được Sheet vận hành.");
+      useAppStore.setState({
+        sheetSync: { ok: false, mode: "sheets", tabs: [], error },
+      });
+      toast.error(error, { id: "ops-sheet" });
+      return null;
+    }
+  })().finally(() => {
+    ledgerInflight = null;
+  });
+
+  return ledgerInflight;
 }
 
+let hydrateInflight: Promise<Awaited<ReturnType<typeof getStaffMeFn>> | undefined> | null = null;
+
 export async function hydrateOpsFromServer() {
-  const r = await getStaffMeFn();
+  if (hydrateInflight) return hydrateInflight;
+  hydrateInflight = runHydrate().finally(() => {
+    hydrateInflight = null;
+  });
+  return hydrateInflight;
+}
+
+async function runHydrate() {
+  let r: Awaited<ReturnType<typeof getStaffMeFn>>;
+  try {
+    r = await getStaffMeFn();
+  } catch (err) {
+    const error = errMsg(err, "Không kết nối được máy chủ.");
+    useAppStore.setState({
+      opsReady: true,
+      staffBlocked: isNetworkFailure(err) ? null : err instanceof Error && err.message !== "Unauthorized" ? err.message : null,
+    });
+    toast.error(error, { id: "ops-hydrate" });
+    return undefined;
+  }
   if (!r.ok) {
     useAppStore.setState({ staffBlocked: r.blocked, opsReady: true });
     return r;
@@ -97,7 +148,6 @@ export async function hydrateOpsFromServer() {
       users: snap.users.length ? snap.users : [me.staff],
       transactions: snap.transactions,
       stocks: Object.keys(snap.stocks).length ? snap.stocks : useAppStore.getState().stocks,
-      sheetSync: snap.sheet,
     });
   } catch {
     /* chưa có quyền hóa chất / Neon */

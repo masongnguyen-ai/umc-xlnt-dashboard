@@ -118,20 +118,9 @@ export function AppShell() {
   }, []);
 
   useEffect(() => {
-    if (!ready || !user) return;
-    void hydrateOpsFromServer()
-      .then((me) => {
-        if (me && !me.ok) {
-          useAppStore.setState({ opsReady: true, staffBlocked: me.blocked });
-        }
-      })
-      .catch((err) => {
-        useAppStore.setState({
-          opsReady: true,
-          staffBlocked: err instanceof Error && err.message !== "Unauthorized" ? err.message : null,
-        });
-      });
-  }, [ready, user]);
+    if (!ready || !user?.id) return;
+    void hydrateOpsFromServer();
+  }, [ready, user?.id]);
 
   const profile = useMemo(() => {
     if (!user?.primaryEmail) return null;
